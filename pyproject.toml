@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "training-system"
+version = "3.0.0"
+description = "AI运动训练分析系统 v3.0 — 马拉松/越野跑专业训练管理平台"
+requires-python = ">=3.10"
+dependencies = [
+    "garmin-fit-sdk>=21.133.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "jinja2>=3.1.2",
+    "anthropic>=0.50.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "httpx>=0.25.0",
+]
+
+[project.scripts]
+training = "training.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

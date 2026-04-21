@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}仪表板 — 训练分析系统{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>训练仪表板</h1>
+    <div class="dashboard-actions">
+        <button id="pipeline-btn" class="action-btn" onclick="runPipeline()">一键刷新</button>
+        <div class="countdown">
+            <span class="countdown-number">{{ days_to_race }}</span>
+            <span class="countdown-label">天到戈21</span>
+        </div>
+    </div>
+</div>
+
+{% if warnings %}
+<div class="warnings-panel">
+    <h3>预警信号</h3>
+    {% for w in warnings %}
+    <div class="warning-item warning-{{ w.level }}">
+        <span class="warning-icon">{% if w.level == 'danger' %}&#x1F534;{% else %}&#x1F7E1;{% endif %}</span>
+        <strong>[{{ w.category }}]</strong> {{ w.message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# === 核心指标卡片区 (CSS Grid 2列) === #}
+<div class="cards-grid">
+    {# TSB 训练平衡 #}
+    <div class="card">
+        <div class="card-label">当前TSB</div>
+        <div class="card-value {% if pmc.tsb is not none and pmc.tsb < -30 %}text-danger{% elif pmc.tsb is not none and pmc.tsb < -10 %}text-warning{% elif pmc.tsb is not none and pmc.tsb >= 5 and pmc.tsb < 15 %}text-success{% else %}text-ok{% endif %}">
+            {{ "%.1f"|format(pmc.tsb) if pmc.tsb is not none else '-' }}
+        </div>
+        <div class="card-interpret">{{ interpret_tsb(pmc.tsb) }}</div>
+    </div>
+
+    {# CTL 体能 #}
+    <div class="card">
+        <div class="card-label">体能 CTL</div>
+        <div class="card-value">{{ "%.1f"|format(pmc.ctl) if pmc.ctl is not none else '-' }}</div>
+        <div class="card-interpret">{{ interpret_ctl(pmc.ctl) }}</div>
+    </div>
+
+    {# ATL 疲劳 #}
+    <div class="card">
+        <div class="card-label">疲劳 ATL</div>
+        <div class="card-value">{{ "%.1f"|format(pmc.atl) if pmc.atl is not none else '-' }}</div>
+        <div class="card-sub">急性训练负荷</div>
+    </div>
+
+    {# ACWR 安全 #}
+    <div class="card">
+        <div class="card-label">ACWR 安全</div>
+        <div class="card-value {% if pmc.acwr is not none and pmc.acwr > 1.5 %}text-danger{% elif pmc.acwr is not none and pmc.acwr > 1.3 %}text-warning{% elif pmc.acwr is not none and pmc.acwr >= 0.8 %}text-ok{% elif pmc.acwr is not none %}text-warning{% endif %}">
+            {{ "%.2f"|format(pmc.acwr) if pmc.acwr is not none else '-' }}
+        </div>
+        <div class="card-interpret">{{ interpret_acwr(pmc.acwr) }}</div>
+    </div>
+
+    {# VO2max #}
+    <div class="card">
+        <div class="card-label">VO2max</div>
+        <div class="card-value text-primary">
+            {{ "%.1f"|format(pro.vo2max) if pro.vo2max else '-' }}
+        </div>
+        <div class="card-interpret">{{ interpret_vo2max(pro.vo2max) if pro.vo2max else '' }}</div>
+    </div>
+
+    {# 训练状态 #}
+    <div class="card">
+        <div class="card-label">训练状态</div>
+        <div class="card-value">
+            {% if pmc.training_status %}
+            <span class="status-badge">{{ pmc.training_status }}</span>
+            {% else %}-{% endif %}
+        </div>
+        <div class="card-interpret">{{ interpret_training_status(pmc.training_status) if pmc.training_status else '' }}</div>
+    </div>
+
+    {# 马拉松准备度 #}
+    <div class="card">
+        <div class="card-label">马拉松准备度</div>
+        <div class="card-value">{{ "%.0f"|format(pro.marathon_shape) if pro.marathon_shape else '0' }}<span class="card-unit">/100</span></div>
+        {% if pro.marathon_shape %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ pro.marathon_shape }}%;
+                background: {% if pro.marathon_shape >= 80 %}#4CAF50{% elif pro.marathon_shape >= 60 %}#2196F3{% elif pro.marathon_shape >= 40 %}#FF9800{% else %}#f44336{% endif %};"></div>
+        </div>
+        {% endif %}
+        <div class="card-interpret">{{ interpret_marathon_shape(pro.marathon_shape) if pro.marathon_shape else '' }}</div>
+    </div>
+
+    {# 恢复指数 #}
+    <div class="card">
+        <div class="card-label">恢复指数</div>
+        {% set recovery = pro.recovery if pro.recovery else {} %}
+        <div class="card-value" style="color: {{ recovery.color if recovery.color else '#333' }};">
+            {{ recovery.score if recovery.score is not none else '-' }}<span class="card-unit">/100</span>
+        </div>
+        {% if recovery.score is not none %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ recovery.score }}%; background: {{ recovery.color if recovery.color else '#2196F3' }};"></div>
+        </div>
+        {% endif %}
+        <div class="card-interpret">{{ interpret_recovery_score(recovery.score) if recovery.score is not none else '' }}</div>
+    </div>
+
+    {# 本周跑量 #}
+    <div class="card">
+        <div class="card-label">本周跑量</div>
+        <div class="card-value">{{ "%.1f"|format(week.run_distance_km) if week.run_distance_km else '0' }} <span class="card-unit">km</span></div>
+    </div>
+
+    {# 本周hrTSS #}
+    <div class="card">
+        <div class="card-label">本周hrTSS</div>
+        <div class="card-value">{{ "%.0f"|format(week.total_hr_tss) if week.total_hr_tss else '0' }}</div>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>PMC — 体能管理图 (90天)</h3>
+        <canvas id="pmcChart"></canvas>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container half">
+        <h3>周跑量趋势</h3>
+        <canvas id="weeklyChart"></canvas>
+    </div>
+    <div class="chart-container half">
+        <h3>心率分区分布 (14天)</h3>
+        <canvas id="zoneChart"></canvas>
+    </div>
+</div>
+
+<div class="recent-sessions">
+    <h3>最近训练</h3>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th>训练分类</th>
+                <th>距离</th>
+                <th>时长</th>
+                <th>配速</th>
+                <th>心率</th>
+                <th>hrTSS</th>
+                <th>VO2max</th>
+                <th>恢复(h)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in recent_sessions %}
+            <tr onclick="location.href='{{ base }}/sessions/{{ s.id }}'">
+                <td>{{ s.start_time[:10] if s.start_time else '-' }}</td>
+                <td>{{ s.sport|sport_cn }}</td>
+                <td>{% if s.training_type %}<span class="tag tag-type">{{ s.training_type }}</span>{% else %}-{% endif %}</td>
+                <td>{{ "%.1f"|format(s.distance_km) if s.distance_km else '-' }}km</td>
+                <td>{{ s.duration_sec|duration }}</td>
+                <td>{{ s.avg_pace_sec|pace }}</td>
+                <td>{{ s.avg_hr if s.avg_hr else '-' }}</td>
+                <td>{{ "%.0f"|format(s.hr_tss) if s.hr_tss else '-' }}</td>
+                <td>{{ "%.1f"|format(s.vo2max) if s.vo2max else '-' }}</td>
+                <td>{{ "%.0f"|format(s.recovery_hours) if s.recovery_hours else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadPMC('pmcChart');
+    loadWeeklyVolume('weeklyChart');
+    loadZoneDistribution('zoneChart');
+});
+async function runPipeline() {
+    const btn = document.getElementById('pipeline-btn');
+    btn.disabled = true;
+    btn.textContent = '处理中...';
+    try {
+        const resp = await fetch('{{ base }}/api/pipeline', {method: 'POST'});
+        const data = await resp.json();
+        if (data.success) {
+            btn.textContent = '完成! ' + data.steps.join(', ');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            btn.textContent = '失败';
+            btn.disabled = false;
+        }
+    } catch(e) {
+        btn.textContent = '请求失败';
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

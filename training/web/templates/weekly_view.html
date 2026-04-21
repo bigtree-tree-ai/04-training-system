@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}周视图 — 训练分析系统{% endblock %}
+
+{% block content %}
+<h1>周训练汇总</h1>
+
+<div class="table-wrapper">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>周</th>
+            <th>日期</th>
+            <th>训练</th>
+            <th>跑步</th>
+            <th>跑量</th>
+            <th>时长</th>
+            <th>TSS</th>
+            <th>均HR</th>
+            <th>E配速</th>
+            <th>长跑</th>
+            <th>变化</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for w in weeks %}
+        <tr>
+            <td>{{ w.year }}-W{{ "%02d"|format(w.week_number) }}</td>
+            <td>{{ w.week_start }}~{{ w.week_end }}</td>
+            <td>{{ w.total_sessions }}</td>
+            <td>{{ w.run_sessions }}</td>
+            <td>{{ "%.1f"|format(w.run_distance_km) if w.run_distance_km else '-' }}</td>
+            <td>{{ w.total_duration_sec|duration }}</td>
+            <td>{{ "%.0f"|format(w.total_hr_tss) if w.total_hr_tss else '-' }}</td>
+            <td>{{ "%.0f"|format(w.avg_hr) if w.avg_hr else '-' }}</td>
+            <td>{{ w.avg_easy_pace_sec|pace }}</td>
+            <td>{{ "%.1f"|format(w.longest_run_km) if w.longest_run_km else '-' }}</td>
+            <td class="{% if w.distance_change_pct and w.distance_change_pct > 10 %}text-danger{% elif w.distance_change_pct and w.distance_change_pct > 0 %}text-warning{% endif %}">
+                {% if w.distance_change_pct is not none %}{{ "%+.0f"|format(w.distance_change_pct) }}%{% else %}-{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

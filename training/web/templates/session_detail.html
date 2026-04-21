@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}{{ session.start_time[:10] }} {{ session.sport|sport_cn }} — 训练详情{% endblock %}
+
+{% block content %}
+<a href="{{ base }}/sessions" class="back-link">&larr; 返回列表</a>
+
+<h1>{{ session.start_time[:10] }} {{ session.sport|sport_cn }}
+    {% if session.distance_km %}{{ "%.1f"|format(session.distance_km) }}km{% endif %}
+    {% if session.training_type %}<span class="tag tag-type" style="font-size:0.6em;vertical-align:middle;margin-left:8px;">{{ session.training_type }}</span>{% endif %}
+</h1>
+
+<div class="cards-row">
+    <div class="card">
+        <div class="card-label">距离</div>
+        <div class="card-value">{{ "%.2f"|format(session.distance_km) if session.distance_km else '-' }} km</div>
+    </div>
+    <div class="card">
+        <div class="card-label">时长</div>
+        <div class="card-value">{{ session.duration_sec|duration }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">配速</div>
+        <div class="card-value">{{ session.avg_pace_sec|pace }} /km</div>
+    </div>
+    <div class="card">
+        <div class="card-label">平均心率</div>
+        <div class="card-value">{{ session.avg_hr if session.avg_hr else '-' }} bpm</div>
+    </div>
+    <div class="card">
+        <div class="card-label">最大心率</div>
+        <div class="card-value">{{ session.max_hr if session.max_hr else '-' }} bpm</div>
+    </div>
+    <div class="card">
+        <div class="card-label">hrTSS</div>
+        <div class="card-value">{{ "%.0f"|format(session.hr_tss) if session.hr_tss else '-' }}</div>
+    </div>
+</div>
+
+<div class="cards-row">
+    <div class="card">
+        <div class="card-label">步频</div>
+        <div class="card-value">{{ session.avg_cadence if session.avg_cadence else '-' }} spm</div>
+    </div>
+    <div class="card">
+        <div class="card-label">卡路里</div>
+        <div class="card-value">{{ session.total_calories if session.total_calories else '-' }} kcal</div>
+    </div>
+    <div class="card">
+        <div class="card-label">心率漂移</div>
+        <div class="card-value {% if session.hr_drift_pct and session.hr_drift_pct > 5 %}text-danger{% elif session.hr_drift_pct and session.hr_drift_pct > 3 %}text-warning{% else %}text-ok{% endif %}">
+            {{ "%.1f"|format(session.hr_drift_pct) if session.hr_drift_pct else '-' }}%
+        </div>
+        <div class="card-interpret">{{ interpret_hr_drift(session.hr_drift_pct) if session.hr_drift_pct else '' }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">配速CV</div>
+        <div class="card-value">{{ "%.1f"|format(session.pace_cv) if session.pace_cv else '-' }}%</div>
+        <div class="card-sub">{% if session.pace_cv %}{% if session.pace_cv < 3 %}极稳{% elif session.pace_cv < 5 %}稳定{% elif session.pace_cv < 8 %}一般{% else %}不稳{% endif %}{% endif %}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">效率因子</div>
+        <div class="card-value">{{ "%.2f"|format(session.efficiency_factor) if session.efficiency_factor else '-' }}</div>
+    </div>
+</div>
+
+{# 新增：VO2max 和恢复时间 #}
+{% if session.vo2max or session.recovery_hours or session.training_effect_label %}
+<div class="cards-row">
+    {% if session.vo2max %}
+    <div class="card">
+        <div class="card-label">VO2max</div>
+        <div class="card-value text-primary">{{ "%.1f"|format(session.vo2max) }}</div>
+        <div class="card-interpret">{{ interpret_vo2max(session.vo2max) }}</div>
+    </div>
+    {% endif %}
+    {% if session.recovery_hours %}
+    <div class="card">
+        <div class="card-label">恢复时间</div>
+        <div class="card-value {% if session.recovery_hours > 48 %}text-warning{% elif session.recovery_hours > 72 %}text-danger{% endif %}">
+            {{ "%.0f"|format(session.recovery_hours) }} <span class="card-unit">小时</span>
+        </div>
+        <div class="card-sub">
+            {% if session.recovery_hours <= 24 %}轻度负荷
+            {% elif session.recovery_hours <= 48 %}中度负荷
+            {% elif session.recovery_hours <= 72 %}高负荷
+            {% else %}极高负荷{% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% if session.training_effect_label %}
+    <div class="card">
+        <div class="card-label">训练效果</div>
+        <div class="card-value">{{ session.training_effect_label }}</div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if hr_zones and hr_zones.zone1_pct is not none %}
+<div class="section">
+    <h3>心率分区</h3>
+    <div class="charts-row">
+        <div class="chart-container half">
+            <canvas id="hrZoneChart"></canvas>
+        </div>
+        <div class="half">
+            <div class="table-wrapper">
+            <table class="data-table compact">
+                <thead><tr><th>分区</th><th>时间</th><th>占比</th></tr></thead>
+                <tbody>
+                    <tr><td>Z1 恢复</td><td>{{ hr_zones.zone1_sec|duration }}</td><td>{{ hr_zones.zone1_pct }}%</td></tr>
+                    <tr><td>Z2 有氧</td><td>{{ hr_zones.zone2_sec|duration }}</td><td>{{ hr_zones.zone2_pct }}%</td></tr>
+                    <tr><td>Z3 节奏</td><td>{{ hr_zones.zone3_sec|duration }}</td><td>{{ hr_zones.zone3_pct }}%</td></tr>
+                    <tr><td>Z4 阈值</td><td>{{ hr_zones.zone4_sec|duration }}</td><td>{{ hr_zones.zone4_pct }}%</td></tr>
+                    <tr><td>Z5 极量</td><td>{{ hr_zones.zone5_sec|duration }}</td><td>{{ hr_zones.zone5_pct }}%</td></tr>
+                </tbody>
+            </table>
+            </div>
+            {% set easy_pct = hr_zones.zone1_pct + hr_zones.zone2_pct %}
+            <div class="polarized-check {% if easy_pct >= 80 %}check-pass{% else %}check-fail{% endif %}">
+                80/20检查: 轻松跑 {{ "%.0f"|format(easy_pct) }}%
+                {% if easy_pct >= 80 %}PASS{% else %}FAIL (目标>=80%){% endif %}
+            </div>
+            <div class="card-interpret" style="margin-top:8px;">{{ interpret_zone_distribution(easy_pct) }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# 新增：历史对比区域 #}
+{% if comparison and comparison.metrics %}
+<div class="section">
+    <h3>与上次同类型训练对比</h3>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>指标</th>
+                <th>本次</th>
+                <th>上次</th>
+                <th>变化</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in comparison.metrics %}
+            <tr>
+                <td>{{ m.name }}</td>
+                <td>{{ m.current if m.current is not none else '-' }}</td>
+                <td>{{ m.previous if m.previous is not none else '-' }}</td>
+                <td class="{% if m.trend == 'up' %}text-up{% elif m.trend == 'down' %}text-down{% else %}text-flat{% endif %}">
+                    {% if m.diff_pct is not none %}
+                    {{ "%+.1f"|format(m.diff_pct) }}%
+                    {% if m.trend == 'up' %} &#9650;{% elif m.trend == 'down' %} &#9660;{% endif %}
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% if laps %}
+<div class="section">
+    <h3>分圈数据</h3>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>圈</th>
+                <th>距离</th>
+                <th>配速</th>
+                <th>心率</th>
+                <th>峰心率</th>
+                <th>步频</th>
+                <th>时长</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lap in laps %}
+            <tr>
+                <td>{{ lap.lap_index + 1 }}</td>
+                <td>{{ "%.2f"|format(lap.distance_km) if lap.distance_km else '-' }}km</td>
+                <td>{{ lap.avg_pace_sec|pace }}</td>
+                <td>{{ lap.avg_hr if lap.avg_hr else '-' }}</td>
+                <td>{{ lap.max_hr if lap.max_hr else '-' }}</td>
+                <td>{{ lap.avg_cadence if lap.avg_cadence else '-' }}</td>
+                <td>{{ lap.duration_sec|duration }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="section">
+    <h3>AI点评
+        <button id="ai-btn" class="action-btn" onclick="triggerAI({{ session.id }})" style="margin-left:8px;">
+            {% if session.ai_summary %}重新分析{% else %}生成AI点评{% endif %}
+        </button>
+    </h3>
+    <div id="ai-content" class="ai-summary">{{ session.ai_summary if session.ai_summary else '暂无AI点评，点击按钮生成' }}</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function triggerAI(sid) {
+    const btn = document.getElementById('ai-btn');
+    const content = document.getElementById('ai-content');
+    btn.disabled = true;
+    btn.textContent = '分析中...';
+    content.textContent = '正在调用AI分析，请稍候...';
+    try {
+        const resp = await fetch(`{{ base }}/api/analyze/session/${sid}`, {method: 'POST'});
+        const data = await resp.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            content.textContent = '分析失败: ' + data.error;
+            btn.disabled = false;
+            btn.textContent = '重试';
+        }
+    } catch(e) {
+        content.textContent = '请求失败: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = '重试';
+    }
+}
+</script>
+{% if hr_zones and hr_zones.zone1_pct is not none %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    new Chart(document.getElementById('hrZoneChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Z1 恢复', 'Z2 有氧', 'Z3 节奏', 'Z4 阈值', 'Z5 极量'],
+            datasets: [{
+                data: [{{ hr_zones.zone1_pct }}, {{ hr_zones.zone2_pct }}, {{ hr_zones.zone3_pct }}, {{ hr_zones.zone4_pct }}, {{ hr_zones.zone5_pct }}],
+                backgroundColor: ['#4CAF50', '#2196F3', '#FF9800', '#f44336', '#9C27B0'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

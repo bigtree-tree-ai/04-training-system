@@ -1,0 +1,15 @@
+{
+    "name": "泓兴",
+    "height_cm": 173.5,
+    "weight_kg": 65.0,
+    "max_heart_rate": 173,
+    "resting_heart_rate": 56,
+    "lactate_threshold_hr": 159,
+    "half_marathon_pb": "1:32:45",
+    "injury_history": "2025-10-23膝关节韧带断裂，2025-11-10手术修复，2026-01起恢复跑步",
+    "current_injury": "膝盖受力微痛（2026-04-06起），后背酸疼",
+    "target_race": "戈21正赛",
+    "race_date": "2026-10-15",
+    "race_description": "连续3天各30K戈壁挑战赛",
+    "target_pace": "4:40-5:10/km"
+}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}训练计划 — 训练分析系统{% endblock %}
+
+{% block content %}
+<h1>训练计划</h1>
+
+{% if calendar %}
+{% set ns = namespace(current_week='') %}
+{% for day in calendar %}
+    {% set week_key = day.planned_date[:10] %}
+    {% set week_num = day.planned_date[:10] %}
+
+    {# 按周分组 -- 每7天一组或按ISO周 #}
+    {% if loop.index0 % 7 == 0 %}
+        {% if not loop.first %}</div></div>{% endif %}
+        <div class="section plan-week">
+            <h3 class="week-header">第{{ (loop.index0 // 7) + 1 }}周
+                <span class="text-muted">{{ day.planned_date[:10] }} 起</span>
+            </h3>
+            <div class="plan-grid">
+    {% endif %}
+
+    <div class="plan-day {% if day.actual_distance %}plan-completed{% elif day.workout_type == 'rest' or day.workout_type == '休息' %}plan-rest{% else %}plan-pending{% endif %}">
+        <div class="plan-date">{{ day.planned_date[:10] }}</div>
+        <div class="plan-type">
+            {% if day.workout_type == 'rest' or day.workout_type == '休息' %}
+                <span class="tag tag-rest">休息</span>
+            {% elif day.workout_type %}
+                <span class="tag tag-type">{{ day.workout_type }}</span>
+            {% endif %}
+        </div>
+        {% if day.description %}
+        <div class="plan-desc">{{ day.description }}</div>
+        {% endif %}
+        <div class="plan-targets">
+            {% if day.target_distance_km %}
+            <span class="plan-target">目标: {{ "%.1f"|format(day.target_distance_km) }}km</span>
+            {% endif %}
+            {% if day.target_pace_sec %}
+            <span class="plan-target">配速: {{ day.target_pace_sec|pace }}</span>
+            {% endif %}
+            {% if day.target_hr_zone %}
+            <span class="plan-target">心率区: Z{{ day.target_hr_zone }}</span>
+            {% endif %}
+        </div>
+        {% if day.actual_distance %}
+        <div class="plan-actual">
+            <span>实际: {{ "%.1f"|format(day.actual_distance) }}km</span>
+            {% if day.actual_pace %}
+            <span>{{ day.actual_pace|pace }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if day.adherence_score is not none %}
+        <div class="plan-adherence">
+            <div class="progress-bar progress-sm">
+                <div class="progress-fill" style="width: {{ day.adherence_score }}%;
+                    background: {% if day.adherence_score >= 80 %}#4CAF50{% elif day.adherence_score >= 60 %}#FF9800{% else %}#f44336{% endif %};"></div>
+            </div>
+            <span class="adherence-label">执行率 {{ "%.0f"|format(day.adherence_score) }}%</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if loop.last %}</div></div>{% endif %}
+{% endfor %}
+
+{% else %}
+<div class="empty-state">
+    <p>暂无训练计划。可通过 <code>python3 main.py plan generate</code> 生成。</p>
+</div>
+{% endif %}
+{% endblock %}
