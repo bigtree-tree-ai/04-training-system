@@ -7,7 +7,7 @@ SERVER_PORT="${TRAIN_SERVER_PORT:-22}"
 SERVER_PASS="${TRAIN_SERVER_PASS:-}"
 DEPLOY_DIR="${TRAIN_DEPLOY_DIR:-/opt/training-system}"
 REPO_URL="${TRAIN_REPO_URL:-https://github.com/bigtree-tree-ai/training-system.git}"
-SERVICE_NAME="${TRAIN_SERVICE_NAME:-training-system}"
+SERVICE_NAME="${TRAIN_SERVICE_NAME:-training-web}"
 WEB_PORT="${TRAIN_WEB_PORT:-8082}"
 ROOT_PATH="${ROOT_PATH:-/training}"
 
@@ -55,6 +55,7 @@ WorkingDirectory=${DEPLOY_DIR}
 Environment=TRAIN_WEB_HOST=0.0.0.0
 Environment=TRAIN_WEB_PORT=${WEB_PORT}
 Environment=ROOT_PATH=${ROOT_PATH}
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m uvicorn training.web.app:app --host 0.0.0.0 --port ${WEB_PORT}
 Restart=always
 RestartSec=5

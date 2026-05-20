@@ -93,7 +93,25 @@ Local baseline data was seeded into local `training.db` from the COROS MCP readi
 
 ## Current Blocker
 
-Aliyun deployment is blocked by SSH authentication.
+Aliyun SSH authentication was resolved on 2026-05-20 and the app was deployed
+to `/opt/training-system`.
+
+The server already had `training-web.service` bound to port `8082`, so the
+deployment flow now reuses `training-web.service` instead of creating a second
+`training-system.service`.
+
+Verified public endpoints:
+
+- `http://101.37.238.138:8081/training/coros`
+- `http://101.37.238.138:8081/training/api/coros/overview`
+
+Remaining operational requirement: complete COROS OAuth on a trusted browser
+and place `.coros_auth.json` in `/opt/training-system` before the daily COROS
+cron can pull fresh COROS data.
+
+## Previous Blocker
+
+Aliyun deployment was blocked by SSH authentication.
 
 Command attempted:
 
