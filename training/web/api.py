@@ -156,13 +156,8 @@ def trigger_session_analysis(session_id: int):
 
 
 @router.post("/pipeline")
-def run_pipeline(key: str = None):
-    """一键全流程: 导入→分析→专业指标（需要API key）"""
-    import os
-    expected = os.getenv("TRAIN_API_KEY", "training-v3-key")
-    if key != expected:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Invalid API key")
+def run_pipeline():
+    """一键全流程: 导入→分析→专业指标。访问控制由Web认证中间件统一处理。"""
     results = []
     try:
         from training.coros.sync import CorosSyncService
@@ -215,11 +210,6 @@ async def coros_overview():
 
 
 @router.post("/coros/sync")
-def coros_sync(days: int = 14, key: str = None):
-    import os
-    from fastapi import HTTPException
-    expected = os.getenv("TRAIN_API_KEY", "training-v3-key")
-    if key != expected:
-        raise HTTPException(status_code=403, detail="Invalid API key")
+def coros_sync(days: int = 14):
     from training.coros.sync import CorosSyncService
     return CorosSyncService().sync(days=days)

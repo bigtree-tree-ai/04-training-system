@@ -10,6 +10,8 @@ REPO_URL="${TRAIN_REPO_URL:-https://github.com/bigtree-tree-ai/training-system.g
 SERVICE_NAME="${TRAIN_SERVICE_NAME:-training-web}"
 WEB_PORT="${TRAIN_WEB_PORT:-8082}"
 ROOT_PATH="${ROOT_PATH:-/training}"
+AUTH_USER="${TRAIN_AUTH_USER:-}"
+AUTH_PASSWORD="${TRAIN_AUTH_PASSWORD:-}"
 
 SSH_BASE=(-p "$SERVER_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10)
 if [[ -n "$SERVER_PASS" ]] && command -v sshpass >/dev/null 2>&1; then
@@ -44,6 +46,32 @@ fi
 python3 -m pip install -r requirements.txt
 python3 -m training.cli coros-overview >/dev/null
 
+if [ ! -f "${DEPLOY_DIR}/.env" ]; then
+  if [ -n "${AUTH_USER}" ] && [ -n "${AUTH_PASSWORD}" ]; then
+    umask 077
+    cat > "${DEPLOY_DIR}/.env" <<'ENV'
+TRAIN_AUTH_USER=${AUTH_USER}
+TRAIN_AUTH_PASSWORD=${AUTH_PASSWORD}
+ENV
+  else
+    cat >&2 <<'MSG'
+Missing dashboard auth config.
+Create /opt/training-system/.env with TRAIN_AUTH_USER and TRAIN_AUTH_PASSWORD,
+or rerun deploy with TRAIN_AUTH_USER=... TRAIN_AUTH_PASSWORD=...
+MSG
+    exit 1
+  fi
+else
+  chmod 600 "${DEPLOY_DIR}/.env"
+fi
+
+if ! grep -q '^TRAIN_AUTH_USER=' "${DEPLOY_DIR}/.env" || ! grep -q '^TRAIN_AUTH_PASSWORD=' "${DEPLOY_DIR}/.env"; then
+  cat >&2 <<'MSG'
+/opt/training-system/.env exists but does not contain both TRAIN_AUTH_USER and TRAIN_AUTH_PASSWORD.
+MSG
+  exit 1
+fi
+
 cat > /etc/systemd/system/${SERVICE_NAME}.service <<'SERVICE'
 [Unit]
 Description=Training Analysis System
@@ -55,6 +83,8 @@ WorkingDirectory=${DEPLOY_DIR}
 Environment=TRAIN_WEB_HOST=0.0.0.0
 Environment=TRAIN_WEB_PORT=${WEB_PORT}
 Environment=ROOT_PATH=${ROOT_PATH}
+Environment=TRAIN_AUTH_REQUIRED=1
+EnvironmentFile=-${DEPLOY_DIR}/.env
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m uvicorn training.web.app:app --host 0.0.0.0 --port ${WEB_PORT}
 Restart=always

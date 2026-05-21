@@ -8,6 +8,8 @@ WorkingDirectory=/opt/training-system
 Environment=TRAIN_WEB_HOST=0.0.0.0
 Environment=TRAIN_WEB_PORT=8082
 Environment=ROOT_PATH=/training
+Environment=TRAIN_AUTH_REQUIRED=1
+EnvironmentFile=-/opt/training-system/.env
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m uvicorn training.web.app:app --host 0.0.0.0 --port 8082
 Restart=always

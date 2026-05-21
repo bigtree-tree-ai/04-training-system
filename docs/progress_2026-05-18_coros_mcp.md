@@ -50,6 +50,9 @@ Web/API:
 - New API: `/api/coros/overview`
 - New protected sync API: `/api/coros/sync`
 - Dashboard pipeline now attempts COROS sync before FIT import/analysis.
+- 2026-05-21: Dashboard pages and APIs are protected by HTTP Basic auth when
+  `TRAIN_AUTH_REQUIRED=1`. Production service reads credentials from
+  `/opt/training-system/.env`.
 
 Deployment assets:
 
@@ -109,6 +112,13 @@ Remaining operational requirement: complete COROS OAuth on a trusted browser
 and place `.coros_auth.json` in `/opt/training-system` before the daily COROS
 cron can pull fresh COROS data.
 
+Production auth requirement: create `/opt/training-system/.env` before deploy
+or run deploy with auth environment variables:
+
+```bash
+TRAIN_AUTH_USER='USER' TRAIN_AUTH_PASSWORD='LONG_RANDOM_PASSWORD' bash scripts/deploy_aliyun.sh
+```
+
 ## Previous Blocker
 
 Aliyun deployment was blocked by SSH authentication.
@@ -135,25 +145,24 @@ The server is reachable, but this machine's current SSH key is not accepted for 
 
 ## Next Steps
 
-1. Fix server authentication using one of these:
-
-```bash
-# Option A: add this machine's public key to root's authorized_keys on Aliyun
-cat ~/.ssh/id_ed25519.pub
-```
-
-or:
-
-```bash
-# Option B: run deploy with password
-TRAIN_SERVER_PASS='SERVER_PASSWORD' bash scripts/deploy_aliyun.sh
-```
-
-2. After deploy succeeds, complete one-time COROS auth on the server:
+1. Ensure dashboard auth is configured on the server:
 
 ```bash
 cd /opt/training-system
-python3 -m training.cli coros-login
+cat > .env <<'EOF'
+TRAIN_AUTH_USER=USER
+TRAIN_AUTH_PASSWORD=LONG_RANDOM_PASSWORD
+EOF
+chmod 600 .env
+```
+
+2. Complete one-time COROS auth from a trusted local browser and upload the
+credential file:
+
+```bash
+python -m training.cli coros-login
+scp .coros_auth.json root@101.37.238.138:/opt/training-system/.coros_auth.json
+ssh root@101.37.238.138 'chmod 600 /opt/training-system/.coros_auth.json'
 ```
 
 This creates `/opt/training-system/.coros_auth.json` on the server for refresh-token based daily sync.
@@ -169,7 +178,7 @@ python3 -m training.cli coros-overview
 4. Verify service:
 
 ```bash
-systemctl status training-system
+systemctl status training-web
 curl -I http://101.37.238.138:8082/coros
 ```
 

@@ -14,6 +14,7 @@ from training.services.dashboard_service import get_dashboard_data
 from training.services.session_service import get_session_detail
 from training.services.plan_service import get_plan_calendar
 from training.web.api import router as api_router
+from training.web.auth import require_basic_auth
 from training.content.interpretations import (
     interpret_ctl, interpret_tsb, interpret_acwr, interpret_vo2max,
     interpret_training_status, interpret_hr_drift, interpret_marathon_shape,
@@ -25,6 +26,14 @@ import os
 ROOT_PATH = os.environ.get("ROOT_PATH", "")
 
 app = FastAPI(title="训练分析系统 v3.0")
+
+
+@app.middleware("http")
+async def enforce_dashboard_auth(request: Request, call_next):
+    auth_response = require_basic_auth(request)
+    if auth_response is not None:
+        return auth_response
+    return await call_next(request)
 
 templates_dir = Path(__file__).parent / "templates"
 static_dir = Path(__file__).parent / "static"
