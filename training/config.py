@@ -4,6 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_ROOT = PROJECT_ROOT.parent  # 06-运动数据AI化/
+ATHLETE_CONFIG_PATH = Path(os.getenv("TRAIN_ATHLETE_CONFIG", str(PROJECT_ROOT / "athlete_config.json")))
 
 # ---------- 数据库 ----------
 DB_PATH = Path(os.getenv("TRAIN_DB_PATH", str(PROJECT_ROOT / "training.db")))

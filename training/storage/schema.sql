@@ -331,3 +331,127 @@ CREATE TABLE IF NOT EXISTS coros_sport_records (
     raw_text            TEXT,
     updated_at          TEXT DEFAULT (datetime('now'))
 );
+
+-- raw_ingest_events: raw layer for device/app payload lineage
+CREATE TABLE IF NOT EXISTS raw_ingest_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    source              TEXT NOT NULL,
+    external_id         TEXT,
+    occurred_at         TEXT,
+    captured_at         TEXT DEFAULT (datetime('now')),
+    payload_hash        TEXT,
+    payload_json        TEXT NOT NULL,
+    status              TEXT DEFAULT 'stored',
+    UNIQUE(source, payload_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_raw_ingest_source_time ON raw_ingest_events(source, captured_at);
+
+-- athlete_checkins: subjective state and future nutrition/hydration inputs
+CREATE TABLE IF NOT EXISTS athlete_checkins (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    date                TEXT NOT NULL,
+    phase               TEXT NOT NULL DEFAULT 'morning',
+    sleep_hours         REAL,
+    sleep_quality       INTEGER,
+    soreness_level      INTEGER,
+    fatigue_level       INTEGER,
+    mood                INTEGER,
+    injury_notes        TEXT,
+    body_weight_kg      REAL,
+    pain_knee           INTEGER,
+    pain_back           INTEGER,
+    hydration_ml        INTEGER,
+    caffeine_mg         INTEGER,
+    nutrition_notes     TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    updated_at          TEXT DEFAULT (datetime('now')),
+    UNIQUE(date, phase)
+);
+CREATE INDEX IF NOT EXISTS idx_athlete_checkins_date ON athlete_checkins(date, phase);
+
+-- canonical_daily_metrics: canonical layer across COROS/FIT/subjective/HealthKit later
+CREATE TABLE IF NOT EXISTS canonical_daily_metrics (
+    date                TEXT PRIMARY KEY,
+    sleep_hours         REAL,
+    sleep_score         INTEGER,
+    hrv_ms              INTEGER,
+    resting_hr          INTEGER,
+    avg_hr              INTEGER,
+    stress_avg          INTEGER,
+    steps               INTEGER,
+    calories_kcal       INTEGER,
+    exercise_min        INTEGER,
+    body_weight_kg      REAL,
+    soreness_level      INTEGER,
+    fatigue_level       INTEGER,
+    mood                INTEGER,
+    pain_knee           INTEGER,
+    pain_back           INTEGER,
+    injury_notes        TEXT,
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+
+-- daily_features: feature layer consumed by the coach agents
+CREATE TABLE IF NOT EXISTS daily_features (
+    date                TEXT PRIMARY KEY,
+    input_version_hash  TEXT NOT NULL,
+    readiness_score     INTEGER NOT NULL,
+    recovery_score      INTEGER NOT NULL,
+    sleep_score         INTEGER,
+    load_risk           TEXT NOT NULL,
+    injury_risk         TEXT NOT NULL,
+    pain_risk           TEXT NOT NULL,
+    training_status     TEXT,
+    factors_json        TEXT,
+    computed_at         TEXT DEFAULT (datetime('now'))
+);
+
+-- evidence_documents: curated RAG-lite seed corpus
+CREATE TABLE IF NOT EXISTS evidence_documents (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_type         TEXT NOT NULL,
+    title               TEXT NOT NULL UNIQUE,
+    url                 TEXT NOT NULL,
+    year                INTEGER,
+    domain              TEXT NOT NULL,
+    summary             TEXT NOT NULL,
+    tags                TEXT,
+    evidence_level      TEXT DEFAULT 'consensus',
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_domain ON evidence_documents(domain);
+
+-- coach_recommendations: agent outputs with traceable inputs and evidence
+CREATE TABLE IF NOT EXISTS coach_recommendations (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recommendation_date TEXT NOT NULL,
+    phase               TEXT NOT NULL,
+    risk_level          TEXT NOT NULL,
+    title               TEXT NOT NULL,
+    summary             TEXT NOT NULL,
+    recommended_action  TEXT NOT NULL,
+    workout_type        TEXT,
+    needs_confirmation  INTEGER NOT NULL DEFAULT 0,
+    input_evidence_json TEXT,
+    evidence_refs_json  TEXT,
+    expert_votes_json   TEXT,
+    status              TEXT DEFAULT 'proposed',
+    user_decision       TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    decided_at          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_coach_recommendations_date ON coach_recommendations(recommendation_date, phase, created_at);
+
+-- heartbeat_runs: autonomous coach heartbeat audit log
+CREATE TABLE IF NOT EXISTS heartbeat_runs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    phase               TEXT NOT NULL,
+    run_date            TEXT NOT NULL,
+    started_at          TEXT DEFAULT (datetime('now')),
+    finished_at         TEXT,
+    status              TEXT NOT NULL DEFAULT 'running',
+    input_version_hash  TEXT,
+    recommendation_id   INTEGER REFERENCES coach_recommendations(id),
+    message             TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_date ON heartbeat_runs(run_date, phase, started_at);

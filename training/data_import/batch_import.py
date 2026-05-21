@@ -5,7 +5,7 @@ from pathlib import Path
 from training import config
 from training.storage.db import init_db
 from training.storage.queries import get_imported_filenames
-from training.storage.writers import upsert_session, upsert_laps, upsert_hr_zones
+from training.storage.writers import store_raw_ingest_event, upsert_session, upsert_laps, upsert_hr_zones
 from training.data_import.fit_parser import parse_fit_file
 
 
@@ -53,6 +53,19 @@ def scan_and_import(reparse_all=False):
             continue
 
         # 写入数据库
+        store_raw_ingest_event(
+            source="fit_file",
+            external_id=fname,
+            occurred_at=result["session"].get("start_time"),
+            payload={
+                "filename": fname,
+                "path": fpath,
+                "fit_file_hash": result["session"].get("fit_file_hash"),
+                "session": result["session"],
+                "lap_count": len(result.get("laps") or []),
+                "has_hr_zones": bool(result.get("hr_zones")),
+            },
+        )
         session_id = upsert_session(result['session'])
 
         if result['laps']:

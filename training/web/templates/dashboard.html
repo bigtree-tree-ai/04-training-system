@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}仪表板 — 训练分析系统{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
 
 {% block content %}
 <div class="dashboard-header">
@@ -178,6 +181,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ base }}/static/charts.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     loadPMC('pmcChart');

@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}今天 — AI训练教练团{% endblock %}
+
+{% block content %}
+{% set rec = today.recommendation %}
+{% set features = today.features %}
+{% set plan = today.plan %}
+{% set checkin = today.checkin or {} %}
+
+<div class="today-header">
+    <div>
+        <div class="eyebrow">TODAY / {{ today.date }}</div>
+        <h1>AI运动康复与训练教练团</h1>
+    </div>
+    <div class="today-actions">
+        <button id="refresh-today" class="action-btn action-primary" onclick="refreshToday()">运行心跳</button>
+        {% if rec.needs_confirmation %}
+        <button id="confirm-plan" class="action-btn" onclick="confirmRecommendation({{ rec.id }}, 'accept')">确认调整</button>
+        <button id="reject-plan" class="action-btn" onclick="confirmRecommendation({{ rec.id }}, 'reject')">暂不采纳</button>
+        {% endif %}
+    </div>
+</div>
+
+<section class="today-hero risk-{{ rec.risk_level }}">
+    <div class="today-decision">
+        <div class="decision-meta">
+            <span class="risk-pill risk-{{ rec.risk_level }}">{{ rec.risk_level|upper }}</span>
+            {% if rec.needs_confirmation %}
+            <span class="confirm-pill">需要确认</span>
+            {% else %}
+            <span class="confirm-pill muted">可直接执行</span>
+            {% endif %}
+        </div>
+        <h2>{{ rec.title }}</h2>
+        <p>{{ rec.recommended_action }}</p>
+        <div class="decision-summary">{{ rec.summary }}</div>
+    </div>
+    <div class="readiness-dial">
+        <div class="dial-number">{{ features.readiness_score }}</div>
+        <div class="dial-label">Readiness</div>
+        <div class="dial-sub">恢复 {{ features.recovery_score }}/100</div>
+    </div>
+</section>
+
+<div class="today-grid">
+    <section class="today-panel">
+        <h3>今日课表</h3>
+        {% if plan %}
+        <div class="workout-title">{{ plan.workout_type }}</div>
+        <p class="workout-desc">{{ plan.description }}</p>
+        <div class="metric-list">
+            <span>距离 {{ "%.1f"|format(plan.target_distance_km) if plan.target_distance_km else "-" }} km</span>
+            <span>时长 {{ plan.target_duration_min|minutes }}</span>
+            <span>配速 {{ plan.target_pace_sec|pace }}</span>
+            <span>心率 {{ plan.target_hr_zone or "-" }}</span>
+        </div>
+        {% else %}
+        <p class="muted-text">今天还没有训练计划，AI 已给出轻量默认建议。</p>
+        {% endif %}
+    </section>
+
+    <section class="today-panel">
+        <h3>恢复与风险</h3>
+        <div class="risk-grid">
+            <div>
+                <span class="label">负荷</span>
+                <strong class="risk-text-{{ features.load_risk }}">{{ features.load_risk }}</strong>
+            </div>
+            <div>
+                <span class="label">伤病</span>
+                <strong class="risk-text-{{ features.injury_risk }}">{{ features.injury_risk }}</strong>
+            </div>
+            <div>
+                <span class="label">疼痛</span>
+                <strong class="risk-text-{{ features.pain_risk }}">{{ features.pain_risk }}</strong>
+            </div>
+            <div>
+                <span class="label">睡眠</span>
+                <strong>{{ features.sleep_score if features.sleep_score is not none else "-" }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="today-panel">
+        <h3>晨间反馈</h3>
+        <form id="checkin-form" class="checkin-form">
+            <div class="form-row">
+                <label>睡眠小时<input name="sleep_hours" type="number" min="0" max="14" step="0.1" value="{{ checkin.sleep_hours or '' }}"></label>
+                <label>睡眠质量<input name="sleep_quality" type="number" min="1" max="100" value="{{ checkin.sleep_quality or '' }}"></label>
+                <label>疲劳<input name="fatigue_level" type="number" min="0" max="10" value="{{ checkin.fatigue_level or '' }}"></label>
+                <label>酸痛<input name="soreness_level" type="number" min="0" max="10" value="{{ checkin.soreness_level or '' }}"></label>
+            </div>
+            <div class="form-row">
+                <label>膝盖疼痛<input name="pain_knee" type="number" min="0" max="10" value="{{ checkin.pain_knee or '' }}"></label>
+                <label>后背疼痛<input name="pain_back" type="number" min="0" max="10" value="{{ checkin.pain_back or '' }}"></label>
+                <label>饮水 ml<input name="hydration_ml" type="number" min="0" step="50" value="{{ checkin.hydration_ml or '' }}"></label>
+                <label>咖啡因 mg<input name="caffeine_mg" type="number" min="0" step="10" value="{{ checkin.caffeine_mg or '' }}"></label>
+            </div>
+            <label class="full-label">身体备注<textarea name="injury_notes" rows="2">{{ checkin.injury_notes or '' }}</textarea></label>
+            <label class="full-label">饮食/补给备注<textarea name="nutrition_notes" rows="2">{{ checkin.nutrition_notes or '' }}</textarea></label>
+            <button class="action-btn action-primary" type="submit">保存并重新评估</button>
+            <span id="checkin-status" class="sync-status"></span>
+        </form>
+    </section>
+
+    <section class="today-panel">
+        <h3>专家团意见</h3>
+        <div class="expert-list">
+            {% for expert in rec.expert_votes %}
+            <div class="expert-item">
+                <strong>{{ expert.expert }}</strong>
+                <span>{{ expert.stance }}</span>
+                <p>{{ expert.rationale }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<section class="today-panel full-width">
+    <h3>本次建议依据</h3>
+    <div class="evidence-columns">
+        <div>
+            <h4>输入依据</h4>
+            <ul class="plain-list">
+                {% for item in rec.input_evidence %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h4>证据依据</h4>
+            <ul class="plain-list">
+                {% for item in rec.evidence_refs %}
+                <li><a href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.title }}</a><span>{{ item.domain }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="recent-sessions">
+    <h3>最近训练</h3>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>类型</th>
+                    <th>距离</th>
+                    <th>时长</th>
+                    <th>配速</th>
+                    <th>心率</th>
+                    <th>TSS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in today.recent_activities %}
+                <tr onclick="location.href='{{ base }}/sessions/{{ s.id }}'">
+                    <td>{{ s.date }}</td>
+                    <td>{{ s.workout_type or s.sport|sport_cn }}</td>
+                    <td>{{ "%.1f"|format(s.distance_km) if s.distance_km else "-" }} km</td>
+                    <td>{{ s.duration_sec|duration }}</td>
+                    <td>{{ s.avg_pace_sec|pace }}</td>
+                    <td>{{ s.avg_hr or "-" }}</td>
+                    <td>{{ "%.0f"|format(s.hr_tss) if s.hr_tss else "-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshToday() {
+    const btn = document.getElementById('refresh-today');
+    btn.disabled = true;
+    btn.textContent = '心跳运行中';
+    const resp = await fetch('{{ base }}/api/v1/today?refresh=true');
+    if (resp.ok) {
+        btn.textContent = '已更新';
+        setTimeout(() => location.reload(), 700);
+    } else {
+        btn.textContent = '失败';
+        btn.disabled = false;
+    }
+}
+
+async function confirmRecommendation(id, decision) {
+    const resp = await fetch('{{ base }}/api/v1/plan/confirm', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({recommendation_id: id, decision})
+    });
+    if (resp.ok) location.reload();
+}
+
+document.getElementById('checkin-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    const status = document.getElementById('checkin-status');
+    status.textContent = '保存中';
+    const data = Object.fromEntries(new FormData(event.target).entries());
+    for (const key of Object.keys(data)) {
+        if (data[key] === '') delete data[key];
+    }
+    const resp = await fetch('{{ base }}/api/v1/checkins', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+        status.textContent = '已重新评估';
+        setTimeout(() => location.reload(), 700);
+    } else {
+        status.textContent = '保存失败';
+    }
+});
+</script>
+{% endblock %}

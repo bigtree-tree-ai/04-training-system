@@ -1,5 +1,38 @@
 """数据写入函数"""
+import hashlib
+import json
+
 from training.storage.db import get_conn
+
+
+def store_raw_ingest_event(
+    source: str,
+    payload: dict,
+    external_id: str | None = None,
+    occurred_at: str | None = None,
+    status: str = "stored",
+) -> str:
+    """Store a raw-layer lineage event without duplicating identical payloads."""
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    payload_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()[:16]
+    conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO raw_ingest_events (
+                source, external_id, occurred_at, payload_hash, payload_json, status
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source, payload_hash) DO UPDATE SET
+                captured_at=datetime('now'),
+                status=excluded.status
+            """,
+            (source, external_id, occurred_at, payload_hash, payload_json, status),
+        )
+        conn.commit()
+        return payload_hash
+    finally:
+        conn.close()
 
 
 def upsert_session(data: dict) -> int:

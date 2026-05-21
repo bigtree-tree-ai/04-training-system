@@ -17,6 +17,8 @@ def main():
         print("  compare-session <id>   单次训练历史对比")
         print("  plan [weeks]           生成训练计划(默认4周)")
         print("  recovery               身体恢复状态报告")
+        print("  today                  查看AI教练团今日建议")
+        print("  heartbeat [phase]      运行一次AI教练团心跳(默认morning)")
         print("  coros-login            授权COROS MCP并保存本地刷新凭据")
         print("  coros-sync [days]      通过COROS MCP同步健康/训练数据")
         print("  coros-overview         查看COROS结构化数据概览")
@@ -100,6 +102,19 @@ def main():
     elif cmd == 'recovery':
         from training.planning.recovery import get_recovery_report
         print(get_recovery_report())
+
+    elif cmd == 'today':
+        import json
+        from training.application.today import TodayService
+        print(json.dumps(TodayService().get_today(), ensure_ascii=False, indent=2))
+
+    elif cmd == 'heartbeat':
+        import json
+        from training.application.heartbeat import AgenticHeartbeatScheduler
+        from training.application.serializers import to_plain
+        phase = sys.argv[2] if len(sys.argv) > 2 else "morning"
+        rec = AgenticHeartbeatScheduler().run(phase=phase)
+        print(json.dumps(to_plain(rec), ensure_ascii=False, indent=2))
 
     elif cmd == 'coros-sync':
         from training.coros.sync import CorosSyncService

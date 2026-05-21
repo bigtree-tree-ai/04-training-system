@@ -20,6 +20,7 @@ from training.coros.parsers import (
     parse_user_info,
 )
 from training.coros import storage
+from training.storage.writers import store_raw_ingest_event
 
 
 class CorosSyncService:
@@ -137,6 +138,17 @@ class CorosSyncService:
     def _call(self, tool_name: str, arguments: dict, tool_results: dict[str, str]) -> str:
         result = self.client.call_tool(tool_name, arguments)
         text = extract_tool_text(result)
+        store_raw_ingest_event(
+            source="coros_mcp",
+            external_id=tool_name,
+            payload={
+                "tool_name": tool_name,
+                "arguments": arguments,
+                "text": text,
+                "is_error": bool(isinstance(result, dict) and result.get("isError")),
+            },
+            status="error" if isinstance(result, dict) and result.get("isError") else "stored",
+        )
         tool_results[tool_name] = "ok"
         if isinstance(result, dict) and result.get("isError"):
             tool_results[tool_name] = "error"

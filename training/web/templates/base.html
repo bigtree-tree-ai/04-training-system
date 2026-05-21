@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}训练分析系统{% endblock %}</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230F766E'/%3E%3Cpath d='M7 20h5l3-10 4 14 3-7h3' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="{{ base }}/static/style.css">
+    {% block head_extra %}{% endblock %}
 </head>
 <body>
     <nav class="navbar">
-        <a href="{{ base }}/" class="logo">训练分析</a>
+        <a href="{{ base }}/" class="logo">AI训练教练团</a>
         <button class="nav-toggle" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="菜单">&#9776;</button>
         <div class="nav-links">
-            <a href="{{ base }}/" {% if request.url.path == '/' %}class="active"{% endif %}>仪表板</a>
+            <a href="{{ base }}/" {% if request.url.path == '/' %}class="active"{% endif %}>今天</a>
+            <a href="{{ base }}/dashboard" {% if request.url.path == '/dashboard' %}class="active"{% endif %}>仪表板</a>
             <a href="{{ base }}/sessions" {% if '/sessions' in request.url.path %}class="active"{% endif %}>训练记录</a>
             <a href="{{ base }}/weekly" {% if request.url.path == '/weekly' %}class="active"{% endif %}>周视图</a>
             <a href="{{ base }}/comparison" {% if request.url.path == '/comparison' %}class="active"{% endif %}>环比分析</a>
@@ -26,7 +28,6 @@
         {% block content %}{% endblock %}
     </main>
     <script>window.BASE_PATH = '{{ base }}';</script>
-    <script src="{{ base }}/static/charts.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

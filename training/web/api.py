@@ -1,7 +1,16 @@
 """JSON API v3.0 — Chart.js数据源 + 业务API"""
-from fastapi import APIRouter
+from datetime import date
+
+from fastapi import APIRouter, Body, HTTPException
 from training.storage.queries import get_daily_load, get_weekly_summaries
 from training.storage.db import get_conn
+from training.adapters.sqlite_repositories import SQLiteTrainingRepository
+from training.application.heartbeat import AgenticHeartbeatScheduler
+from training.application.serializers import to_plain
+from training.application.today import TodayService
+from training.domain.models import SubjectiveCheckin
+from training.evidence.retriever import CuratedEvidenceRetriever
+from training.services.pipeline_service import run_refresh_pipeline
 
 router = APIRouter()
 
@@ -158,41 +167,7 @@ def trigger_session_analysis(session_id: int):
 @router.post("/pipeline")
 def run_pipeline():
     """一键全流程: 导入→分析→专业指标。访问控制由Web认证中间件统一处理。"""
-    results = []
-    try:
-        from training.coros.sync import CorosSyncService
-        coros = CorosSyncService().sync(days=14)
-        results.append(f"COROS同步完成: {sum(coros['persisted'].values())}项")
-    except Exception as e:
-        results.append(f"COROS同步跳过/失败: {e}")
-
-    try:
-        from training.data_import.batch_import import scan_and_import
-        scan_and_import()
-        results.append("FIT导入完成")
-    except Exception as e:
-        results.append(f"FIT导入失败: {e}")
-
-    try:
-        from training.analysis.session_metrics import compute_all_session_metrics
-        from training.analysis.macro_metrics import compute_daily_load
-        from training.analysis.weekly_summary import compute_weekly_summaries
-        from training.analysis.pro_metrics import compute_all_pro_metrics
-        compute_all_session_metrics()
-        compute_daily_load()
-        compute_weekly_summaries()
-        compute_all_pro_metrics()
-        results.append("分析计算完成(含专业指标)")
-    except Exception as e:
-        results.append(f"分析计算失败: {e}")
-
-    try:
-        from training.services.plan_service import match_plan_to_actual
-        matched = match_plan_to_actual()
-        results.append(f"计划匹配完成: {matched}条")
-    except Exception as e:
-        results.append(f"计划匹配失败: {e}")
-
+    results = run_refresh_pipeline(sync_coros=True, coros_days=14)
     return {"success": True, "steps": results}
 
 
@@ -213,3 +188,102 @@ async def coros_overview():
 def coros_sync(days: int = 14):
     from training.coros.sync import CorosSyncService
     return CorosSyncService().sync(days=days)
+
+
+@router.get("/v1/today")
+def today_api(refresh: bool = False, phase: str = "morning"):
+    return TodayService().get_today(refresh=refresh, phase=phase)
+
+
+@router.get("/v1/checkins")
+def get_checkin(date_str: str | None = None, phase: str = "morning"):
+    day = _parse_date(date_str)
+    checkin = SQLiteTrainingRepository().get_checkin(day, phase)
+    return {"date": day.isoformat(), "phase": phase, "checkin": to_plain(checkin)}
+
+
+@router.post("/v1/checkins")
+def post_checkin(payload: dict = Body(...)):
+    day = _parse_date(payload.get("date"))
+    phase = payload.get("phase") or "morning"
+    checkin = SubjectiveCheckin(
+        date=day.isoformat(),
+        phase=phase,
+        sleep_hours=_float_or_none(payload.get("sleep_hours")),
+        sleep_quality=_int_or_none(payload.get("sleep_quality")),
+        soreness_level=_int_or_none(payload.get("soreness_level")),
+        fatigue_level=_int_or_none(payload.get("fatigue_level")),
+        mood=_int_or_none(payload.get("mood")),
+        injury_notes=payload.get("injury_notes") or "",
+        body_weight_kg=_float_or_none(payload.get("body_weight_kg")),
+        pain_knee=_int_or_none(payload.get("pain_knee")),
+        pain_back=_int_or_none(payload.get("pain_back")),
+        hydration_ml=_int_or_none(payload.get("hydration_ml")),
+        caffeine_mg=_int_or_none(payload.get("caffeine_mg")),
+        nutrition_notes=payload.get("nutrition_notes") or "",
+    )
+    saved = SQLiteTrainingRepository().upsert_checkin(checkin)
+    rec = AgenticHeartbeatScheduler().run(phase=phase, day=day)
+    return {"success": True, "checkin": to_plain(saved), "recommendation": to_plain(rec)}
+
+
+@router.post("/v1/sync/run")
+def sync_run(payload: dict = Body(default={})):
+    coros_days = int(payload.get("coros_days", 14))
+    sync_coros = bool(payload.get("sync_coros", True))
+    phase = payload.get("phase") or "morning"
+    results = run_refresh_pipeline(sync_coros=sync_coros, coros_days=coros_days)
+    rec = AgenticHeartbeatScheduler().run(phase=phase)
+    return {"success": True, "steps": results, "recommendation": to_plain(rec)}
+
+
+@router.get("/v1/coach/recommendations")
+def list_coach_recommendations(limit: int = 20):
+    return {"items": SQLiteTrainingRepository().list_recommendations(limit=limit)}
+
+
+@router.post("/v1/coach/recommendations")
+def run_coach_recommendation(payload: dict = Body(default={})):
+    phase = payload.get("phase") or "morning"
+    day = _parse_date(payload.get("date"))
+    rec = AgenticHeartbeatScheduler().run(phase=phase, day=day)
+    return {"success": True, "recommendation": to_plain(rec)}
+
+
+@router.post("/v1/plan/confirm")
+def confirm_plan_recommendation(payload: dict = Body(...)):
+    recommendation_id = payload.get("recommendation_id")
+    decision = payload.get("decision")
+    if not recommendation_id or decision not in {"accept", "reject"}:
+        raise HTTPException(status_code=400, detail="recommendation_id and decision=accept|reject are required")
+    ok = SQLiteTrainingRepository().confirm_recommendation(int(recommendation_id), decision)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    return {"success": True, "recommendation_id": int(recommendation_id), "decision": decision}
+
+
+@router.get("/v1/evidence/search")
+def evidence_search(q: str = "", limit: int = 5):
+    results = CuratedEvidenceRetriever().search(q, limit=limit)
+    return {"query": q, "items": to_plain(results)}
+
+
+def _parse_date(value: str | None) -> date:
+    if not value:
+        return date.today()
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="date must use YYYY-MM-DD") from exc
+
+
+def _int_or_none(value):
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+def _float_or_none(value):
+    if value in (None, ""):
+        return None
+    return float(value)

@@ -13,6 +13,7 @@ from training.storage.queries import get_weekly_summaries, get_ai_reports
 from training.services.dashboard_service import get_dashboard_data
 from training.services.session_service import get_session_detail
 from training.services.plan_service import get_plan_calendar
+from training.application.today import TodayService
 from training.web.api import router as api_router
 from training.web.auth import require_basic_auth
 from training.content.interpretations import (
@@ -116,6 +117,12 @@ def startup():
 
 
 @app.get("/", response_class=HTMLResponse)
+async def today_view(request: Request):
+    data = TodayService().get_today()
+    return templates.TemplateResponse(request, "today.html", {"today": data})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     data = get_dashboard_data()
     return templates.TemplateResponse(request, "dashboard.html", data)

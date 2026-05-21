@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ session.start_time[:10] }} {{ session.sport|sport_cn }} — 训练详情{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
 
 {% block content %}
 <a href="{{ base }}/sessions" class="back-link">&larr; 返回列表</a>
