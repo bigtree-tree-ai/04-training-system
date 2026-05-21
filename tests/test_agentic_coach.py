@@ -91,6 +91,19 @@ def test_today_api_returns_agentic_contract(monkeypatch, tmp_path):
     assert "evidence_refs" in payload["recommendation"]
 
 
+def test_empty_database_pages_do_not_crash(monkeypatch, tmp_path):
+    _use_temp_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)
+
+    from training.web.app import app
+
+    client = TestClient(app)
+
+    assert client.get("/").status_code == 200
+    assert client.get("/dashboard").status_code == 200
+    assert client.get("/api/summary").status_code == 200
+
+
 def test_full_user_flow_checkin_recommendation_and_confirm(monkeypatch, tmp_path):
     _use_temp_db(monkeypatch, tmp_path)
     monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)

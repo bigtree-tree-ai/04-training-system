@@ -35,7 +35,14 @@ def _get_latest_week(conn) -> dict:
     row = conn.execute("""
         SELECT * FROM weekly_summaries ORDER BY year DESC, week_number DESC LIMIT 1
     """).fetchone()
-    return dict(row) if row else {}
+    if row:
+        return dict(row)
+    return {
+        'run_distance_km': 0,
+        'total_hr_tss': 0,
+        'total_sessions': 0,
+        'run_sessions': 0,
+    }
 
 
 def _get_latest_pmc(conn) -> dict:
@@ -43,7 +50,18 @@ def _get_latest_pmc(conn) -> dict:
         SELECT date, atl, ctl, tsb, acwr, training_status, monotony, strain
         FROM daily_load ORDER BY date DESC LIMIT 1
     """).fetchone()
-    return dict(row) if row else {}
+    if row:
+        return dict(row)
+    return {
+        'date': None,
+        'atl': None,
+        'ctl': None,
+        'tsb': None,
+        'acwr': None,
+        'training_status': None,
+        'monotony': None,
+        'strain': None,
+    }
 
 
 def _get_recent_sessions(conn, limit: int = 5) -> list[dict]:
