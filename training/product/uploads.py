@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -130,5 +130,5 @@ def _safe_filename(filename: str) -> str:
 
 
 def _stored_path(user_id: int, filename: str, file_hash: str) -> Path:
-    stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return config.USER_UPLOAD_DIR / f"user_{user_id}" / f"{stamp}_{file_hash}_{filename}"

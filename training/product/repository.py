@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 from training.storage.db import get_conn, init_db
@@ -232,7 +232,7 @@ class ProductRepository:
         conn = get_conn(self.db_path)
         try:
             export = {
-                "exported_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "user": user,
                 "profile": self.get_profile(user_id, conn=conn),
                 "fit_uploads": [
