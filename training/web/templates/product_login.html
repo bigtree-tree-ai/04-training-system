@@ -1,0 +1,73 @@
+{% extends "product_base.html" %}
+{% block title %}登录 - AI 运动康复教练团{% endblock %}
+
+{% block content %}
+<section class="product-auth-layout">
+    <div class="product-auth-copy">
+        <p class="product-kicker">Private Beta</p>
+        <h1>今天练什么，先从你的数据说起。</h1>
+        <p>上传 FIT，完成目标和伤痛背景，系统会生成第一份训练报告和当天建议。</p>
+    </div>
+    <div class="product-auth-panels">
+        <form id="loginForm" class="product-panel product-form">
+            <h2>登录</h2>
+            <label>邮箱<input name="email" type="email" autocomplete="email" required></label>
+            <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+            <button class="product-primary-btn" type="submit">登录</button>
+            <p id="loginError" class="form-error"></p>
+        </form>
+        <form id="registerForm" class="product-panel product-form">
+            <h2>创建账号</h2>
+            <label>昵称<input name="display_name" autocomplete="name"></label>
+            <label>邮箱<input name="email" type="email" autocomplete="email" required></label>
+            <label>密码<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+            <button class="product-secondary-btn" type="submit">注册并开始</button>
+            <p id="registerError" class="form-error"></p>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function postJson(url, data) {
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.detail || '请求失败');
+    return payload;
+}
+function formData(form) {
+    return Object.fromEntries(new FormData(form).entries());
+}
+function goAfterAuth(user) {
+    window.location.href = user.onboarding_completed ? `${window.BASE_PATH}/product/today` : `${window.BASE_PATH}/product/onboarding`;
+}
+document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const error = document.getElementById('loginError');
+    error.textContent = '';
+    try {
+        const payload = await postJson(`${window.BASE_PATH}/api/product/auth/login`, formData(event.currentTarget));
+        goAfterAuth(payload.user);
+    } catch (err) {
+        error.textContent = err.message;
+    }
+});
+document.getElementById('registerForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const error = document.getElementById('registerError');
+    error.textContent = '';
+    try {
+        const payload = await postJson(`${window.BASE_PATH}/api/product/auth/register`, formData(event.currentTarget));
+        goAfterAuth(payload.user);
+    } catch (err) {
+        error.textContent = err.message;
+    }
+});
+</script>
+{% endblock %}
+

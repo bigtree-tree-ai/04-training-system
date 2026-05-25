@@ -1,0 +1,74 @@
+{% extends "product_base.html" %}
+{% block title %}隐私与数据 - AI 运动康复教练团{% endblock %}
+
+{% block content %}
+<header class="product-page-header">
+    <p class="product-kicker">Privacy</p>
+    <h1>隐私、免责声明、数据导出删除</h1>
+</header>
+
+<section class="product-layout-2">
+    <div class="product-panel">
+        <h2>隐私原则</h2>
+        <ul class="product-list">
+            <li>账号数据按用户隔离，产品接口只读取当前登录用户的数据。</li>
+            <li>FIT 原始文件和解析结果用于训练建议、报告和恢复风险判断。</li>
+            <li>API key、设备凭据和健康数据凭据不写入 Git。</li>
+        </ul>
+    </div>
+    <div class="product-panel">
+        <h2>免责声明</h2>
+        <ul class="product-list">
+            <li>AI 建议不是医疗诊断，不替代医生、康复师或线下运动评估。</li>
+            <li>胸痛、晕厥、进行性疼痛、术后异常反应，应停止训练并就医。</li>
+            <li>高风险训练调整默认需要你确认。</li>
+        </ul>
+    </div>
+</section>
+
+<section class="product-panel">
+    <div class="product-section-title">
+        <h2>导出数据</h2>
+        <button id="exportBtn" class="product-primary-btn" type="button">生成导出</button>
+    </div>
+    <pre id="exportResult" class="product-json-preview" hidden></pre>
+</section>
+
+<section class="product-panel product-danger-panel">
+    <h2>删除账号数据</h2>
+    <p>删除会移除你的账号、onboarding、FIT 上传记录、训练解析结果、通知订阅和会话。</p>
+    <div class="product-delete-row">
+        <input id="deleteConfirm" placeholder="输入 DELETE_MY_DATA">
+        <button id="deleteBtn" class="product-danger-btn" type="button">删除</button>
+    </div>
+    <p id="deleteError" class="form-error"></p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('exportBtn').addEventListener('click', async () => {
+    const res = await fetch(`${window.BASE_PATH}/api/product/privacy/export`);
+    const payload = await res.json();
+    const pre = document.getElementById('exportResult');
+    pre.hidden = false;
+    pre.textContent = JSON.stringify(payload.data, null, 2);
+});
+document.getElementById('deleteBtn').addEventListener('click', async () => {
+    const error = document.getElementById('deleteError');
+    error.textContent = '';
+    const res = await fetch(`${window.BASE_PATH}/api/product/privacy/account`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: document.getElementById('deleteConfirm').value })
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        error.textContent = payload.detail || '删除失败';
+        return;
+    }
+    window.location.href = `${window.BASE_PATH}/product`;
+});
+</script>
+{% endblock %}
+

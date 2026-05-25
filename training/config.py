@@ -13,6 +13,8 @@ DB_PATH = Path(os.getenv("TRAIN_DB_PATH", str(PROJECT_ROOT / "training.db")))
 COROS_FIT_DIR = Path(os.getenv("TRAIN_FIT_DIR", str(DATA_ROOT / "高驰的运动数据导出")))
 EXTRA_FIT_DIR = DATA_ROOT
 CSV_PATH = DATA_ROOT / "all_sessions.csv"
+USER_UPLOAD_DIR = Path(os.getenv("TRAIN_USER_UPLOAD_DIR", str(PROJECT_ROOT / "uploads")))
+MAX_UPLOAD_BYTES = int(os.getenv("TRAIN_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
 
 # ---------- Web 服务 ----------
 WEB_HOST = os.getenv("TRAIN_WEB_HOST", "127.0.0.1")

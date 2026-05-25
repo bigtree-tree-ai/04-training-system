@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}今日决策台 — 运动 AI 专业版{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{% set rec = pro.recommendation %}
+{% set features = pro.features %}
+{% set narrative = pro.narrative %}
+{% set quality = pro.data_quality %}
+
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">PRO DECISION / {{ pro.date }}</div>
+        <h1>今日决策台</h1>
+        <p class="pro-lead">今日建议 -> 为什么 -> 数据可信度 -> 趋势 -> 风险控制 -> 证据链</p>
+    </div>
+    <div class="today-actions">
+        <button id="refresh-today" class="action-btn action-primary" onclick="refreshToday()">重新评估</button>
+        {% if rec.needs_confirmation %}
+        <button class="action-btn" onclick="confirmRecommendation({{ rec.id }}, 'accept')">确认调整</button>
+        <button class="action-btn" onclick="confirmRecommendation({{ rec.id }}, 'reject')">暂不采纳</button>
+        {% endif %}
+    </div>
+</header>
+
+<section class="pro-decision-hero risk-{{ rec.risk_level }}">
+    <div class="pro-decision-main">
+        <div class="decision-meta">
+            <span class="risk-pill risk-{{ rec.risk_level }}">{{ rec.risk_level|upper }}</span>
+            <span class="quality-pill quality-{{ quality.level }}">置信度 {{ quality.confidence }}/100</span>
+            {% if rec.needs_confirmation %}<span class="confirm-pill">需要确认</span>{% endif %}
+        </div>
+        <h2>{{ narrative.conclusion.title }}</h2>
+        <p>{{ narrative.conclusion.action }}</p>
+        <div class="pro-stop-strip">
+            {% for item in narrative.conclusion.stop_conditions[:3] %}
+            <span>{{ item }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="pro-score-stack">
+        <div class="pro-score">
+            <strong>{{ features.readiness_score }}</strong>
+            <span>Readiness</span>
+        </div>
+        <div class="pro-score-row">
+            <span>恢复 {{ features.recovery_score }}/100</span>
+            <span>睡眠 {{ features.sleep_score if features.sleep_score is not none else "-" }}</span>
+        </div>
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>为什么这么建议</h2>
+            <span>关键依据</span>
+        </div>
+        <ul class="pro-reason-list">
+            {% for reason in narrative.key_reasons %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+        </ul>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>数据是否可信</h2>
+            <span>{{ quality.level }}</span>
+        </div>
+        <canvas id="freshnessChart" height="210"></canvas>
+        {% if quality.input_gaps %}
+        <div class="pro-gap-list">
+            {% for gap in quality.input_gaps[:3] %}
+            <p>{{ gap }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>Readiness 组成</h2>
+            <span>贡献/扣分</span>
+        </div>
+        <canvas id="readinessChart" height="210"></canvas>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>趋势是否支持今天的训练</h2>
+        <span>{{ narrative.trend_judgement.latest_status }}</span>
+    </div>
+    <p class="pro-section-note">{{ narrative.trend_judgement.message }}</p>
+    <div class="pro-chart-grid">
+        <div>
+            <h3>PMC / 负荷趋势</h3>
+            <canvas id="pmcChart" height="260"></canvas>
+        </div>
+        <div>
+            <h3>28天心率分区</h3>
+            <canvas id="zoneChart" height="260"></canvas>
+        </div>
+    </div>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>风险如何控制</h2>
+        <span>康复保守优先</span>
+    </div>
+    <div class="risk-matrix">
+        {% for risk in pro.risk_matrix %}
+        <div class="risk-matrix-row risk-{{ risk.level }}">
+            <div>
+                <strong>{{ risk.domain }}</strong>
+                <span>{{ risk.signal }}</span>
+            </div>
+            <div class="risk-level">{{ risk.level }}</div>
+            <p>{{ risk.rule }}</p>
+            <p>{{ risk.action }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>可执行动作</h2>
+            <span>今天</span>
+        </div>
+        <ol class="pro-action-list">
+            {% for action in narrative.actions %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ol>
+    </article>
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>证据来自哪里</h2>
+            <span>输入 + 文献 + 审计</span>
+        </div>
+        <div class="evidence-columns">
+            <div>
+                <h3>输入依据</h3>
+                <ul class="plain-list">
+                    {% for item in pro.audit.input_evidence[:6] %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div>
+                <h3>证据引用</h3>
+                <ul class="plain-list">
+                    {% for item in pro.audit.evidence_refs[:6] %}
+                    <li><a href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.title }}</a><span>{{ item.domain }}</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>今日复盘输入</h2>
+        <span>疼痛 / 疲劳 / 营养</span>
+    </div>
+    {% set checkin = pro.checkin or {} %}
+    <form id="checkin-form" class="checkin-form compact-checkin">
+        <div class="form-row">
+            <label>睡眠小时<input name="sleep_hours" type="number" min="0" max="14" step="0.1" value="{{ checkin.sleep_hours or '' }}"></label>
+            <label>睡眠质量<input name="sleep_quality" type="number" min="1" max="100" value="{{ checkin.sleep_quality or '' }}"></label>
+            <label>疲劳<input name="fatigue_level" type="number" min="0" max="10" value="{{ checkin.fatigue_level or '' }}"></label>
+            <label>酸痛<input name="soreness_level" type="number" min="0" max="10" value="{{ checkin.soreness_level or '' }}"></label>
+        </div>
+        <div class="form-row">
+            <label>膝盖疼痛<input name="pain_knee" type="number" min="0" max="10" value="{{ checkin.pain_knee or '' }}"></label>
+            <label>后背疼痛<input name="pain_back" type="number" min="0" max="10" value="{{ checkin.pain_back or '' }}"></label>
+            <label>饮水 ml<input name="hydration_ml" type="number" min="0" step="50" value="{{ checkin.hydration_ml or '' }}"></label>
+            <label>咖啡因 mg<input name="caffeine_mg" type="number" min="0" step="10" value="{{ checkin.caffeine_mg or '' }}"></label>
+        </div>
+        <label class="full-label">身体备注<textarea name="injury_notes" rows="2">{{ checkin.injury_notes or '' }}</textarea></label>
+        <label class="full-label">饮食/补给备注<textarea name="nutrition_notes" rows="2">{{ checkin.nutrition_notes or '' }}</textarea></label>
+        <button class="action-btn action-primary" type="submit">保存并重新评估</button>
+        <span id="checkin-status" class="sync-status"></span>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const proCharts = {{ pro.charts|tojson }};
+const sourceTimeline = {{ pro.source_timeline|tojson }};
+
+function hasData(values) {
+    return Array.isArray(values) && values.some(v => v !== null && v !== undefined && Number(v) !== 0);
+}
+
+function drawNoData(canvasId, text) {
+    const canvas = document.getElementById(canvasId);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(Math.round(rect.width), 260);
+    canvas.height = Math.max(Math.round(rect.height), 180);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#F8F5F0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#E2D8CC';
+    ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+    ctx.fillStyle = '#7C7065';
+    ctx.font = '600 14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+}
+
+function drawReadiness() {
+    const data = proCharts.readiness_waterfall;
+    new Chart(document.getElementById('readinessChart'), {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: '分值',
+                data: data.values,
+                backgroundColor: data.values.map(v => v < 0 ? '#D95745' : '#167C6B'),
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { color: '#E7E1D8' } }, y: { grid: { display: false } } }
+        }
+    });
+}
+
+function drawFreshness() {
+    new Chart(document.getElementById('freshnessChart'), {
+        type: 'bar',
+        data: {
+            labels: sourceTimeline.map(item => item.label),
+            datasets: [{
+                label: '新鲜度',
+                data: sourceTimeline.map(item => item.freshness),
+                backgroundColor: sourceTimeline.map(item => item.status === 'ready' ? '#167C6B' : item.status === 'stale' ? '#C8872B' : '#B9AEA2'),
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: 0, max: 100 } }
+        }
+    });
+}
+
+function drawPmc() {
+    const pmc = proCharts.pmc;
+    if (!pmc.labels.length) {
+        drawNoData('pmcChart', '缺少 PMC 负荷数据');
+        return;
+    }
+    new Chart(document.getElementById('pmcChart'), {
+        type: 'line',
+        data: {
+            labels: pmc.labels,
+            datasets: [
+                { label: 'CTL 体能', data: pmc.ctl, borderColor: '#246A8F', pointRadius: 0, tension: 0.25 },
+                { label: 'ATL 疲劳', data: pmc.atl, borderColor: '#D95745', pointRadius: 0, tension: 0.25 },
+                { label: 'TSB 状态', data: pmc.tsb, borderColor: '#167C6B', pointRadius: 0, tension: 0.25 }
+            ]
+        },
+        options: { responsive: true, interaction: { mode: 'index', intersect: false } }
+    });
+}
+
+function drawZones() {
+    const zones = proCharts.zones;
+    if (!hasData(zones.values)) {
+        drawNoData('zoneChart', '缺少心率分区数据');
+        return;
+    }
+    new Chart(document.getElementById('zoneChart'), {
+        type: 'bar',
+        data: {
+            labels: zones.labels,
+            datasets: [{ label: '占比 %', data: zones.values, backgroundColor: ['#8BC6A4', '#167C6B', '#C8872B', '#D95745', '#7C4A7E'], borderRadius: 6 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+}
+
+drawReadiness();
+drawFreshness();
+drawPmc();
+drawZones();
+
+async function refreshToday() {
+    const btn = document.getElementById('refresh-today');
+    btn.disabled = true;
+    btn.textContent = '重新评估中';
+    const resp = await fetch('{{ base }}/api/v1/pro/today?refresh=true');
+    if (resp.ok) {
+        btn.textContent = '已更新';
+        setTimeout(() => location.reload(), 700);
+    } else {
+        btn.textContent = '失败';
+        btn.disabled = false;
+    }
+}
+
+async function confirmRecommendation(id, decision) {
+    const resp = await fetch('{{ base }}/api/v1/plan/confirm', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({recommendation_id: id, decision})
+    });
+    if (resp.ok) location.reload();
+}
+
+document.getElementById('checkin-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    const status = document.getElementById('checkin-status');
+    status.textContent = '保存中';
+    const data = Object.fromEntries(new FormData(event.target).entries());
+    for (const key of Object.keys(data)) {
+        if (data[key] === '') delete data[key];
+    }
+    const resp = await fetch('{{ base }}/api/v1/checkins', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (resp.ok) {
+        status.textContent = '已重新评估';
+        setTimeout(() => location.reload(), 700);
+    } else {
+        status.textContent = '保存失败';
+    }
+});
+</script>
+{% endblock %}

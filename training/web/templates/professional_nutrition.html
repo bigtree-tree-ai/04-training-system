@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}营养恢复 — 运动 AI 专业版{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">NUTRITION / RECOVERY</div>
+        <h1>营养恢复</h1>
+        <p class="pro-lead">碳水、水盐、咖啡因、能量可用性、睡眠恢复和赛段补给。</p>
+    </div>
+</header>
+
+<section class="pro-kpi-row">
+    <div class="pro-kpi"><span>营养风险</span><strong>{{ pro.nutrition.level }}</strong><em>今日</em></div>
+    <div class="pro-kpi"><span>饮水</span><strong>{{ pro.nutrition.hydration_ml if pro.nutrition.hydration_ml is not none else "-" }}</strong><em>ml</em></div>
+    <div class="pro-kpi"><span>咖啡因</span><strong>{{ pro.nutrition.caffeine_mg if pro.nutrition.caffeine_mg is not none else "-" }}</strong><em>mg</em></div>
+    <div class="pro-kpi"><span>睡眠评分</span><strong>{{ pro.nutrition.sleep_score if pro.nutrition.sleep_score is not none else "-" }}</strong><em>恢复输入</em></div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>今日补给动作</h2>
+            <span>可执行</span>
+        </div>
+        <ol class="pro-action-list">
+            {% for item in pro.nutrition.recommendations %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ol>
+        {% if pro.nutrition.reds_flags %}
+        <div class="pro-gap-list">
+            {% for flag in pro.nutrition.reds_flags %}
+            <p>{{ flag }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </article>
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>睡眠 / HRV / 静息心率</h2>
+            <span>高驰健康数据</span>
+        </div>
+        <canvas id="sleepChart" height="280"></canvas>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>训练前 / 中 / 后补给时间轴</h2>
+        <span>长距离和戈壁多日赛演练</span>
+    </div>
+    <div class="nutrition-timeline">
+        {% for item in pro.charts.nutrition_timeline["items"] %}
+        <div>
+            <strong>{{ item.phase }}</strong>
+            <span>{{ item.focus }}</span>
+            <em>{{ item.window }}</em>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>赛段补给演练</h2>
+            <span>不要等比赛日验证</span>
+        </div>
+        <ul class="pro-reason-list">
+            {% for item in pro.nutrition_plan.race_rehearsal %}
+            <li><strong>{{ item.scenario }}</strong>：{{ item.focus }}</li>
+            {% endfor %}
+        </ul>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>咖啡因护栏</h2>
+            <span>表现不压过恢复</span>
+        </div>
+        <ul class="pro-reason-list">
+            {% for item in pro.nutrition_plan.caffeine_guardrails %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>REDs 提示边界</h2>
+            <span>非诊断</span>
+        </div>
+        <p class="pro-section-note">系统只根据睡眠、饮食备注、训练负荷和恢复异常做风险提示；涉及低能量可用性、内分泌、骨应力或长期疲劳，需要线下专业评估。</p>
+    </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const sleep = {{ pro.charts.sleep_recovery|tojson }};
+function drawNoData(canvasId, text) {
+    const canvas = document.getElementById(canvasId);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(Math.round(rect.width), 260);
+    canvas.height = Math.max(Math.round(rect.height), 180);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#F8F5F0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#E2D8CC';
+    ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+    ctx.fillStyle = '#7C7065';
+    ctx.font = '600 14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+}
+if (sleep.labels.length) {
+    new Chart(document.getElementById('sleepChart'), {
+        type: 'line',
+        data: {
+            labels: sleep.labels,
+            datasets: [
+                { label: '睡眠评分', data: sleep.sleep_score, borderColor: '#167C6B', pointRadius: 2, tension: 0.25 },
+                { label: 'HRV', data: sleep.hrv, borderColor: '#246A8F', pointRadius: 2, tension: 0.25, yAxisID: 'y1' },
+                { label: '静息心率', data: sleep.resting_hr, borderColor: '#D95745', pointRadius: 2, tension: 0.25, yAxisID: 'y1' }
+            ]
+        },
+        options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: { y1: { position: 'right', grid: { display: false } } } }
+    });
+} else {
+    drawNoData('sleepChart', '缺少睡眠 / HRV / 静息心率数据');
+}
+</script>
+{% endblock %}

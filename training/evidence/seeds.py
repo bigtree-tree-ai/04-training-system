@@ -33,6 +33,19 @@ CURATED_EVIDENCE: list[EvidenceDocument] = [
     ),
     EvidenceDocument(
         id=None,
+        source_type="ACSM Position Stand",
+        title="ACSM Resistance Training Prescription for Healthy Adults",
+        url="https://acsm.org/science-spotlight-acsm-releases-new-position-stand-on-resistance-training/",
+        year=2026,
+        domain="strength_mobility",
+        summary=(
+            "抗阻训练是健康成年人肌肉功能、力量、耐力和身体功能的重要组成；用于支持跑步外的力量与稳定性安排。"
+        ),
+        tags=("resistance", "strength", "mobility", "performance", "rehabilitation"),
+        evidence_level="position_stand",
+    ),
+    EvidenceDocument(
+        id=None,
         source_type="IOC/BJSM Consensus",
         title="IOC Consensus Statement on Load in Sport and Risk of Injury",
         url="https://bjsm.bmj.com/content/50/17/1030",
@@ -55,6 +68,32 @@ CURATED_EVIDENCE: list[EvidenceDocument] = [
             "运动疼痛和过用损伤需要区分负荷刺激与组织承受能力，疼痛升级时应优先保护和评估。"
         ),
         tags=("pain", "injury", "rehabilitation", "overuse", "risk"),
+        evidence_level="consensus_statement",
+    ),
+    EvidenceDocument(
+        id=None,
+        source_type="BJSM Consensus",
+        title="2016 Consensus Statement on Return to Sport from Bern",
+        url="https://pubmed.ncbi.nlm.nih.gov/27226389/",
+        year=2016,
+        domain="return_to_sport",
+        summary=(
+            "返场不是康复结束时的孤立决定，而是恢复、训练参与、专项回归和表现恢复并行推进的风险管理过程。"
+        ),
+        tags=("return_to_sport", "rehabilitation", "risk", "injury", "progression"),
+        evidence_level="consensus_statement",
+    ),
+    EvidenceDocument(
+        id=None,
+        source_type="IOC/BJSM Consensus",
+        title="2023 IOC Consensus Statement on Relative Energy Deficiency in Sport",
+        url="https://pubmed.ncbi.nlm.nih.gov/37752011/",
+        year=2023,
+        domain="sports_nutrition",
+        summary=(
+            "低能量可用性可能影响健康、恢复和表现；系统只做风险提示和记录建议，不替代医疗诊断。"
+        ),
+        tags=("REDs", "energy_availability", "nutrition", "recovery", "performance"),
         evidence_level="consensus_statement",
     ),
     EvidenceDocument(
@@ -111,6 +150,19 @@ CURATED_EVIDENCE: list[EvidenceDocument] = [
     ),
     EvidenceDocument(
         id=None,
+        source_type="COROS Documentation",
+        title="COROS MCP Testing",
+        url="https://us.coros.com/stories/coros-metrics/c/mcp-testing",
+        year=2026,
+        domain="device_data",
+        summary=(
+            "COROS MCP 可让 AI 安全读取训练历史和健康指标，是高驰数据接入、同步状态和数据新鲜度检查的来源之一。"
+        ),
+        tags=("COROS", "MCP", "device", "training_history", "health_data"),
+        evidence_level="official_documentation",
+    ),
+    EvidenceDocument(
+        id=None,
         source_type="Apple Developer Documentation",
         title="Apple HealthKit HKWorkout",
         url="https://developer.apple.com/documentation/healthkit/hkworkout",
@@ -123,4 +175,3 @@ CURATED_EVIDENCE: list[EvidenceDocument] = [
         evidence_level="official_documentation",
     ),
 ]
-

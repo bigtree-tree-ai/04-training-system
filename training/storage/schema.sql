@@ -3,6 +3,7 @@
 -- sessions: 每次训练汇总
 CREATE TABLE IF NOT EXISTS sessions (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
     filename            TEXT NOT NULL UNIQUE,
     fit_file_hash       TEXT,
     sport               TEXT,
@@ -335,6 +336,7 @@ CREATE TABLE IF NOT EXISTS coros_sport_records (
 -- raw_ingest_events: raw layer for device/app payload lineage
 CREATE TABLE IF NOT EXISTS raw_ingest_events (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
     source              TEXT NOT NULL,
     external_id         TEXT,
     occurred_at         TEXT,
@@ -349,6 +351,7 @@ CREATE INDEX IF NOT EXISTS idx_raw_ingest_source_time ON raw_ingest_events(sourc
 -- athlete_checkins: subjective state and future nutrition/hydration inputs
 CREATE TABLE IF NOT EXISTS athlete_checkins (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
     date                TEXT NOT NULL,
     phase               TEXT NOT NULL DEFAULT 'morning',
     sleep_hours         REAL,
@@ -371,6 +374,7 @@ CREATE INDEX IF NOT EXISTS idx_athlete_checkins_date ON athlete_checkins(date, p
 
 -- canonical_daily_metrics: canonical layer across COROS/FIT/subjective/HealthKit later
 CREATE TABLE IF NOT EXISTS canonical_daily_metrics (
+    owner_user_id       INTEGER,
     date                TEXT PRIMARY KEY,
     sleep_hours         REAL,
     sleep_score         INTEGER,
@@ -393,6 +397,7 @@ CREATE TABLE IF NOT EXISTS canonical_daily_metrics (
 
 -- daily_features: feature layer consumed by the coach agents
 CREATE TABLE IF NOT EXISTS daily_features (
+    owner_user_id       INTEGER,
     date                TEXT PRIMARY KEY,
     input_version_hash  TEXT NOT NULL,
     readiness_score     INTEGER NOT NULL,
@@ -424,6 +429,7 @@ CREATE INDEX IF NOT EXISTS idx_evidence_domain ON evidence_documents(domain);
 -- coach_recommendations: agent outputs with traceable inputs and evidence
 CREATE TABLE IF NOT EXISTS coach_recommendations (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
     recommendation_date TEXT NOT NULL,
     phase               TEXT NOT NULL,
     risk_level          TEXT NOT NULL,
@@ -445,6 +451,7 @@ CREATE INDEX IF NOT EXISTS idx_coach_recommendations_date ON coach_recommendatio
 -- heartbeat_runs: autonomous coach heartbeat audit log
 CREATE TABLE IF NOT EXISTS heartbeat_runs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
     phase               TEXT NOT NULL,
     run_date            TEXT NOT NULL,
     started_at          TEXT DEFAULT (datetime('now')),
@@ -455,3 +462,106 @@ CREATE TABLE IF NOT EXISTS heartbeat_runs (
     message             TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_date ON heartbeat_runs(run_date, phase, started_at);
+
+-- product_users: productized multi-user accounts
+CREATE TABLE IF NOT EXISTS product_users (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    email               TEXT NOT NULL UNIQUE,
+    password_hash       TEXT NOT NULL,
+    display_name        TEXT,
+    role                TEXT NOT NULL DEFAULT 'user',
+    status              TEXT NOT NULL DEFAULT 'active',
+    onboarding_completed INTEGER NOT NULL DEFAULT 0,
+    accepted_terms_at   TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_users_status ON product_users(status, created_at);
+
+-- product_auth_sessions: cookie sessions for product users
+CREATE TABLE IF NOT EXISTS product_auth_sessions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES product_users(id) ON DELETE CASCADE,
+    token_hash          TEXT NOT NULL UNIQUE,
+    expires_at          TEXT NOT NULL,
+    created_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_auth_sessions_user ON product_auth_sessions(user_id, expires_at);
+
+-- product_user_profiles: onboarding and training goal profile
+CREATE TABLE IF NOT EXISTS product_user_profiles (
+    user_id             INTEGER PRIMARY KEY REFERENCES product_users(id) ON DELETE CASCADE,
+    goal_type           TEXT,
+    target_race         TEXT,
+    race_date           TEXT,
+    running_level       TEXT,
+    weekly_availability TEXT,
+    injury_history      TEXT,
+    current_injury      TEXT,
+    max_hr              INTEGER,
+    resting_hr          INTEGER,
+    height_cm           REAL,
+    weight_kg           REAL,
+    onboarding_json     TEXT,
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+
+-- product_fit_uploads: upload audit trail and first-report linkage
+CREATE TABLE IF NOT EXISTS product_fit_uploads (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES product_users(id) ON DELETE CASCADE,
+    filename            TEXT NOT NULL,
+    stored_path         TEXT,
+    file_hash           TEXT NOT NULL,
+    size_bytes          INTEGER NOT NULL,
+    status              TEXT NOT NULL,
+    message             TEXT,
+    session_id          INTEGER REFERENCES sessions(id),
+    first_report_json   TEXT,
+    uploaded_at         TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_fit_uploads_user_time ON product_fit_uploads(user_id, uploaded_at);
+
+-- product_data_exports: privacy export audit
+CREATE TABLE IF NOT EXISTS product_data_exports (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES product_users(id) ON DELETE CASCADE,
+    export_json         TEXT NOT NULL,
+    created_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_data_exports_user_time ON product_data_exports(user_id, created_at);
+
+-- product_notification_subscriptions: PWA push subscription records
+CREATE TABLE IF NOT EXISTS product_notification_subscriptions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES product_users(id) ON DELETE CASCADE,
+    endpoint            TEXT NOT NULL,
+    p256dh              TEXT,
+    auth                TEXT,
+    user_agent          TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, endpoint)
+);
+CREATE INDEX IF NOT EXISTS idx_product_notifications_user ON product_notification_subscriptions(user_id, created_at);
+
+-- product_notifications: notification audit and in-app fallback
+CREATE TABLE IF NOT EXISTS product_notifications (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES product_users(id) ON DELETE CASCADE,
+    title               TEXT NOT NULL,
+    body                TEXT NOT NULL,
+    url                 TEXT,
+    status              TEXT NOT NULL DEFAULT 'queued',
+    created_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_notifications_user_status ON product_notifications(user_id, status, created_at);
+
+-- product_admin_audit_log: sensitive product actions
+CREATE TABLE IF NOT EXISTS product_admin_audit_log (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER,
+    action              TEXT NOT NULL,
+    details_json        TEXT,
+    created_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_product_admin_audit_action_time ON product_admin_audit_log(action, created_at);

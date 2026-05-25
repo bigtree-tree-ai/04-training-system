@@ -12,6 +12,8 @@ from starlette.responses import Response
 
 STATIC_PREFIXES = ("/static/",)
 PUBLIC_PATHS = {"/favicon.ico"}
+PRODUCT_PREFIXES = ("/product", "/api/product")
+PWA_PATHS = {"/manifest.webmanifest", "/service-worker.js"}
 
 
 def require_basic_auth(request: Request) -> Response | None:
@@ -43,7 +45,11 @@ def _auth_required() -> bool:
 
 
 def _is_public_path(path: str) -> bool:
-    return path in PUBLIC_PATHS or any(path.startswith(prefix) for prefix in STATIC_PREFIXES)
+    return (
+        path in PUBLIC_PATHS
+        or path in PWA_PATHS
+        or any(path.startswith(prefix) for prefix in STATIC_PREFIXES + PRODUCT_PREFIXES)
+    )
 
 
 def _decode_basic_auth(header: str) -> tuple[str, str] | None:

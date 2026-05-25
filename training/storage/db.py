@@ -31,12 +31,31 @@ def _migrate(conn: sqlite3.Connection):
         ("sessions", "training_type", "TEXT"),
         ("sessions", "training_effect_label", "TEXT"),
         ("sessions", "recovery_hours", "REAL"),
+        ("sessions", "owner_user_id", "INTEGER"),
         ("daily_load", "acwr", "REAL"),
         ("daily_load", "training_status", "TEXT"),
+        ("raw_ingest_events", "owner_user_id", "INTEGER"),
+        ("athlete_checkins", "owner_user_id", "INTEGER"),
+        ("canonical_daily_metrics", "owner_user_id", "INTEGER"),
+        ("daily_features", "owner_user_id", "INTEGER"),
+        ("coach_recommendations", "owner_user_id", "INTEGER"),
+        ("heartbeat_runs", "owner_user_id", "INTEGER"),
     ]
     for table, col, dtype in migrations:
         try:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+        except sqlite3.OperationalError:
+            pass
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_sessions_owner_start ON sessions(owner_user_id, start_time)",
+        "CREATE INDEX IF NOT EXISTS idx_raw_ingest_owner_time ON raw_ingest_events(owner_user_id, captured_at)",
+        "CREATE INDEX IF NOT EXISTS idx_athlete_checkins_owner_date ON athlete_checkins(owner_user_id, date, phase)",
+        "CREATE INDEX IF NOT EXISTS idx_coach_recommendations_owner_date ON coach_recommendations(owner_user_id, recommendation_date, phase, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_owner_date ON heartbeat_runs(owner_user_id, run_date, phase, started_at)",
+    ]
+    for sql in indexes:
+        try:
+            conn.execute(sql)
         except sqlite3.OperationalError:
             pass
     conn.commit()

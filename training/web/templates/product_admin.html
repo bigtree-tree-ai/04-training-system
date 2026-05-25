@@ -1,0 +1,49 @@
+{% extends "product_base.html" %}
+{% block title %}管理后台 - AI 运动康复教练团{% endblock %}
+
+{% block content %}
+<header class="product-page-header">
+    <p class="product-kicker">Admin</p>
+    <h1>管理后台</h1>
+</header>
+
+<section class="product-panel">
+    <div class="product-section-title">
+        <h2>用户</h2>
+        <span>{{ users|length }} 个账号</span>
+    </div>
+    <div class="table-wrapper flat-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>邮箱</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>Onboarding</th>
+                    <th>上传</th>
+                    <th>训练</th>
+                    <th>最近训练</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in users %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.email }}</td>
+                    <td>{{ item.role }}</td>
+                    <td>{{ item.status }}</td>
+                    <td>{{ '完成' if item.onboarding_completed else '未完成' }}</td>
+                    <td>{{ item.upload_count }}</td>
+                    <td>{{ item.session_count }}</td>
+                    <td>{{ item.latest_session_at or '-' }}</td>
+                    <td>{{ item.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+

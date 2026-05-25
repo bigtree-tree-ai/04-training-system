@@ -1,0 +1,74 @@
+{% extends "product_base.html" %}
+{% block title %}目标与身体背景 - AI 运动康复教练团{% endblock %}
+
+{% block content %}
+<header class="product-page-header">
+    <p class="product-kicker">Onboarding</p>
+    <h1>目标、基础和风险边界</h1>
+</header>
+
+<form id="onboardingForm" class="product-panel product-form product-wide-form">
+    <div class="product-form-grid">
+        <label>目标类型
+            <select name="goal_type" required>
+                {% set goal_type = profile.goal_type if profile else '' %}
+                <option value="马拉松能力" {% if goal_type == '马拉松能力' %}selected{% endif %}>马拉松能力</option>
+                <option value="越野 100KM 基础" {% if goal_type == '越野 100KM 基础' %}selected{% endif %}>越野 100KM 基础</option>
+                <option value="康复后安全提升" {% if goal_type == '康复后安全提升' %}selected{% endif %}>康复后安全提升</option>
+                <option value="减脂与健康跑" {% if goal_type == '减脂与健康跑' %}selected{% endif %}>减脂与健康跑</option>
+            </select>
+        </label>
+        <label>目标赛事<input name="target_race" value="{{ profile.target_race if profile else '戈21' }}"></label>
+        <label>比赛日期<input name="race_date" type="date" value="{{ profile.race_date if profile else '2026-10-15' }}"></label>
+        <label>跑步基础
+            <select name="running_level">
+                {% set running_level = profile.running_level if profile else '' %}
+                <option value="小白" {% if running_level == '小白' %}selected{% endif %}>小白</option>
+                <option value="规律跑者" {% if running_level == '规律跑者' %}selected{% endif %}>规律跑者</option>
+                <option value="马拉松完赛" {% if running_level == '马拉松完赛' %}selected{% endif %}>马拉松完赛</option>
+                <option value="越野跑者" {% if running_level == '越野跑者' %}selected{% endif %}>越野跑者</option>
+            </select>
+        </label>
+        <label>每周可训练时间<input name="weekly_availability" value="{{ profile.weekly_availability if profile else '每周 4-5 天，每次 45-90 分钟' }}"></label>
+        <label>最大心率<input name="max_hr" type="number" min="120" max="230" value="{{ profile.max_hr if profile and profile.max_hr else '' }}"></label>
+        <label>静息心率<input name="resting_hr" type="number" min="35" max="100" value="{{ profile.resting_hr if profile and profile.resting_hr else '' }}"></label>
+        <label>身高 cm<input name="height_cm" type="number" step="0.1" min="100" max="230" value="{{ profile.height_cm if profile and profile.height_cm else '' }}"></label>
+        <label>体重 kg<input name="weight_kg" type="number" step="0.1" min="30" max="200" value="{{ profile.weight_kg if profile and profile.weight_kg else '' }}"></label>
+        <label class="product-span-2">伤病史<textarea name="injury_history">{{ profile.injury_history if profile else '' }}</textarea></label>
+        <label class="product-span-2">当前不适<textarea name="current_injury">{{ profile.current_injury if profile else '' }}</textarea></label>
+    </div>
+    <label class="product-check">
+        <input name="accepted_terms" type="checkbox" required>
+        <span>我理解本系统用于训练管理，不替代医疗诊断；我同意上传和处理自己的运动健康数据。</span>
+    </label>
+    <div class="product-form-actions">
+        <button class="product-primary-btn" type="submit">保存并进入今天</button>
+        <p id="onboardingError" class="form-error"></p>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('onboardingForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.accepted_terms = form.accepted_terms.checked;
+    const error = document.getElementById('onboardingError');
+    error.textContent = '';
+    const res = await fetch(`${window.BASE_PATH}/api/product/onboarding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        error.textContent = payload.detail || '保存失败';
+        return;
+    }
+    window.location.href = `${window.BASE_PATH}/product/today`;
+});
+</script>
+{% endblock %}
+

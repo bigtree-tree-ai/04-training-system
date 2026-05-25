@@ -6,6 +6,7 @@ from training.storage.queries import get_daily_load, get_weekly_summaries
 from training.storage.db import get_conn
 from training.adapters.sqlite_repositories import SQLiteTrainingRepository
 from training.application.heartbeat import AgenticHeartbeatScheduler
+from training.application.professional import ProfessionalDashboardService
 from training.application.serializers import to_plain
 from training.application.today import TodayService
 from training.domain.models import SubjectiveCheckin
@@ -193,6 +194,36 @@ def coros_sync(days: int = 14):
 @router.get("/v1/today")
 def today_api(refresh: bool = False, phase: str = "morning"):
     return TodayService().get_today(refresh=refresh, phase=phase)
+
+
+@router.get("/v1/pro/today")
+def professional_today_api(refresh: bool = False, phase: str = "morning"):
+    return ProfessionalDashboardService().get_today_decision(refresh=refresh, phase=phase)
+
+
+@router.get("/v1/pro/data-center")
+def professional_data_center_api():
+    return ProfessionalDashboardService().get_data_center()
+
+
+@router.get("/v1/pro/performance")
+def professional_performance_api():
+    return ProfessionalDashboardService().get_performance()
+
+
+@router.get("/v1/pro/rehab")
+def professional_rehab_api():
+    return ProfessionalDashboardService().get_rehab()
+
+
+@router.get("/v1/pro/nutrition")
+def professional_nutrition_api():
+    return ProfessionalDashboardService().get_nutrition()
+
+
+@router.get("/v1/pro/evidence-model")
+def professional_evidence_model_api():
+    return ProfessionalDashboardService().get_evidence_model()
 
 
 @router.get("/v1/checkins")

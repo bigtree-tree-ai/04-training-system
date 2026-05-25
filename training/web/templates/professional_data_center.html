@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}数据中心 — 运动 AI 专业版{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">DATA LINEAGE</div>
+        <h1>数据中心</h1>
+        <p class="pro-lead">高驰 MCP、FIT 文件、主观反馈、课表和证据库的完整性检查。</p>
+    </div>
+    <button id="pipeline-btn" class="action-btn action-primary" onclick="runPipeline()">一键刷新</button>
+</header>
+
+<section class="pro-kpi-row">
+    <div class="pro-kpi"><span>数据置信度</span><strong>{{ pro.data_quality.confidence }}/100</strong><em>{{ pro.data_quality.level }}</em></div>
+    <div class="pro-kpi"><span>训练记录</span><strong>{{ pro.data_quality.session_count }}</strong><em>{{ pro.data_quality.running_count }} 跑步</em></div>
+    <div class="pro-kpi"><span>本地 FIT</span><strong>{{ pro.fit_library.file_count }}</strong><em>已配置目录</em></div>
+    <div class="pro-kpi"><span>证据条目</span><strong>{{ pro.data_quality.evidence_count }}</strong><em>可检索</em></div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>数据新鲜度时间线</h2>
+            <span>{{ pro.data_quality.coros_sync.status }}</span>
+        </div>
+        <canvas id="freshnessChart" height="240"></canvas>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>输入缺口</h2>
+            <span>影响置信度</span>
+        </div>
+        {% if pro.data_quality.input_gaps %}
+        <ul class="pro-reason-list">
+            {% for gap in pro.data_quality.input_gaps %}
+            <li>{{ gap }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="pro-section-note">核心输入齐全。</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>COROS MCP</h2>
+            <span>{{ pro.data_quality.coros_sync.status }}</span>
+        </div>
+        <dl class="pro-definition-list">
+            <dt>最近同步</dt><dd>{{ pro.data_quality.coros_sync.updated_at or "-" }}</dd>
+            <dt>消息</dt><dd>{{ pro.data_quality.coros_sync.message or "-" }}</dd>
+            <dt>设备</dt><dd>{{ pro.today.features.factors.canonical.steps if pro.today.features.factors.canonical else "-" }} steps / today</dd>
+        </dl>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>FIT 文件库</h2>
+            <span>{{ pro.fit_library.file_count }} files</span>
+        </div>
+        <ul class="plain-list compact-list">
+            {% for item in pro.fit_library.latest_files %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>Raw Ingest</h2>
+            <span>{{ pro.data_quality.raw_ingest_count }} events</span>
+        </div>
+        <div class="table-wrapper flat-table">
+            <table class="data-table compact">
+                <thead><tr><th>来源</th><th>数量</th><th>最近</th></tr></thead>
+                <tbody>
+                    {% for row in pro.raw_ingest.sources %}
+                    <tr><td>{{ row.source }}</td><td>{{ row.count }}</td><td>{{ row.latest or "-" }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>数据血缘详情</h2>
+        <span>从原始输入到建议</span>
+    </div>
+    <div class="lineage-steps">
+        <div><strong>1 原始层</strong><span>FIT 文件 / COROS MCP payload / 晨检</span></div>
+        <div><strong>2 标准层</strong><span>sessions / coros_* / canonical_daily_metrics</span></div>
+        <div><strong>3 特征层</strong><span>daily_features / PMC / 心率分区 / 疼痛评分</span></div>
+        <div><strong>4 决策层</strong><span>coach_recommendations / expert_votes / evidence_refs</span></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const sourceTimeline = {{ pro.source_timeline|tojson }};
+new Chart(document.getElementById('freshnessChart'), {
+    type: 'bar',
+    data: {
+        labels: sourceTimeline.map(item => item.label),
+        datasets: [{
+            label: '新鲜度',
+            data: sourceTimeline.map(item => item.freshness),
+            backgroundColor: sourceTimeline.map(item => item.status === 'ready' ? '#167C6B' : item.status === 'stale' ? '#C8872B' : '#B9AEA2'),
+            borderRadius: 6
+        }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+});
+
+async function runPipeline() {
+    const btn = document.getElementById('pipeline-btn');
+    btn.disabled = true;
+    btn.textContent = '刷新中';
+    try {
+        const resp = await fetch('{{ base }}/api/pipeline', {method: 'POST'});
+        const data = await resp.json();
+        btn.textContent = data.success ? '完成' : '失败';
+        setTimeout(() => location.reload(), 900);
+    } catch(e) {
+        btn.textContent = '请求失败';
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

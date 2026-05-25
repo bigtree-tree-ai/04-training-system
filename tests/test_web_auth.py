@@ -45,6 +45,18 @@ def test_static_assets_bypass_required_auth(monkeypatch):
     assert response.status_code == 200
 
 
+def test_product_routes_bypass_basic_auth_and_use_product_auth(monkeypatch):
+    monkeypatch.setenv("TRAIN_AUTH_REQUIRED", "1")
+    monkeypatch.delenv("TRAIN_AUTH_USER", raising=False)
+    monkeypatch.delenv("TRAIN_AUTH_PASSWORD", raising=False)
+
+    product_page = _client().get("/product")
+    product_api = _client().get("/api/product/me")
+
+    assert product_page.status_code == 200
+    assert product_api.status_code == 401
+
+
 def test_private_routes_fail_closed_when_auth_is_unconfigured(monkeypatch):
     monkeypatch.setenv("TRAIN_AUTH_REQUIRED", "1")
     monkeypatch.delenv("TRAIN_AUTH_USER", raising=False)

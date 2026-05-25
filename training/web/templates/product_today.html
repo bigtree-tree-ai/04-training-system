@@ -1,0 +1,162 @@
+{% extends "product_base.html" %}
+{% block title %}今天练什么 - AI 运动康复教练团{% endblock %}
+
+{% block content %}
+<header class="product-page-header">
+    <p class="product-kicker">{{ today.date }}</p>
+    <h1>今天练什么</h1>
+    <div class="product-header-actions">
+        <button id="notifyBtn" class="product-secondary-btn" type="button">开启提醒</button>
+        <a class="product-secondary-btn" href="{{ base }}/product/onboarding">更新目标</a>
+    </div>
+</header>
+
+<section class="product-today-band risk-{{ today.risk_level }}">
+    <div>
+        <span class="product-risk-chip risk-{{ today.risk_level }}">{{ today.risk_level }}</span>
+        {% if today.needs_confirmation %}<span class="product-risk-chip confirm">需要确认</span>{% endif %}
+        <h2>{{ today.title }}</h2>
+        <p class="product-workout">{{ today.today_workout }}</p>
+        <p class="product-reason">{{ today.reason }}</p>
+    </div>
+    <div class="product-readiness">
+        <strong>{{ today.readiness_score }}</strong>
+        <span>readiness</span>
+    </div>
+</section>
+
+<section class="product-layout-2">
+    <div class="product-panel">
+        <h2>依据</h2>
+        <ul class="product-list">
+            {% for reason in today.risk_reasons %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="product-panel">
+        <h2>下一步</h2>
+        <ul class="product-list">
+            {% for step in today.next_steps %}
+            <li>{{ step }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+
+<section class="product-panel">
+    <div class="product-section-title">
+        <h2>上传 FIT 生成首份报告</h2>
+        <span>{{ today.recent_uploads|length }} 次上传</span>
+    </div>
+    <div class="product-upload-row">
+        <input id="fitFile" type="file" accept=".fit">
+        <button id="uploadBtn" class="product-primary-btn" type="button">上传并分析</button>
+    </div>
+    <p id="uploadError" class="form-error"></p>
+    <div id="firstReport" class="first-report" hidden></div>
+    {% if today.recent_uploads and today.recent_uploads[0].first_report %}
+    {% set latest_report = today.recent_uploads[0].first_report %}
+    <div class="first-report">
+        <h3>{{ latest_report.title }}</h3>
+        <p>{{ latest_report.summary }}</p>
+        <div class="product-report-grid">
+            <span>风险：{{ latest_report.risk_level }}</span>
+            <span>距离：{{ latest_report.metrics.distance_km or '-' }} km</span>
+            <span>时长：{{ latest_report.metrics.duration_min or '-' }} 分钟</span>
+            <span>平均心率：{{ latest_report.metrics.avg_hr or '-' }}</span>
+        </div>
+        <ul>
+            {% for step in latest_report.next_steps %}
+            <li>{{ step }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</section>
+
+<section class="product-panel">
+    <div class="product-section-title">
+        <h2>最近训练</h2>
+        <span>{{ today.recent_sessions|length }} 条</span>
+    </div>
+    {% if today.recent_sessions %}
+    <div class="product-session-list">
+        {% for item in today.recent_sessions %}
+        <div class="product-session-item">
+            <strong>{{ item.start_time[:10] if item.start_time else '-' }}</strong>
+            <span>{{ item.distance_km or '-' }} km</span>
+            <span>{{ item.duration_sec|duration }}</span>
+            <span>{{ item.avg_hr or '-' }} bpm</span>
+            <span>{{ item.avg_pace_sec|pace }}/km</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="product-muted">还没有训练记录。</p>
+    {% endif %}
+</section>
+
+<p class="product-disclaimer">{{ today.disclaimer }}</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+    const input = document.getElementById('fitFile');
+    const error = document.getElementById('uploadError');
+    const report = document.getElementById('firstReport');
+    error.textContent = '';
+    report.hidden = true;
+    if (!input.files.length) {
+        error.textContent = '请选择 .fit 文件';
+        return;
+    }
+    const file = input.files[0];
+    const res = await fetch(`${window.BASE_PATH}/api/product/fit/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) },
+        body: await file.arrayBuffer()
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        error.textContent = payload.detail || '上传失败';
+        return;
+    }
+    const first = payload.first_report;
+    report.hidden = false;
+    report.innerHTML = `
+        <h3>${first.title}</h3>
+        <p>${first.summary}</p>
+        <div class="product-report-grid">
+            <span>风险：${first.risk_level}</span>
+            <span>距离：${first.metrics.distance_km ?? '-'} km</span>
+            <span>时长：${first.metrics.duration_min ?? '-'} 分钟</span>
+            <span>平均心率：${first.metrics.avg_hr ?? '-'}</span>
+        </div>
+        <ul>${first.next_steps.map(step => `<li>${step}</li>`).join('')}</ul>
+    `;
+    setTimeout(() => window.location.reload(), 900);
+});
+
+document.getElementById('notifyBtn').addEventListener('click', async () => {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+    const reg = await navigator.serviceWorker.register(`${window.BASE_PATH}/service-worker.js`);
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    let endpoint = `local-notification:${Date.now()}`;
+    const subscription = await reg.pushManager.getSubscription();
+    if (subscription) endpoint = subscription.endpoint;
+    await fetch(`${window.BASE_PATH}/api/product/notifications/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, keys: {} })
+    });
+    await fetch(`${window.BASE_PATH}/api/product/notifications/test`, { method: 'POST' });
+    await reg.showNotification('训练提醒已开启', {
+        body: '之后系统会把训练前、跑后和晚间复盘提醒记录到你的账号。',
+        data: { url: `${window.BASE_PATH}/product/today` }
+    });
+});
+</script>
+{% endblock %}

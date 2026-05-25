@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}训练表现 — 运动 AI 专业版{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">PERFORMANCE</div>
+        <h1>训练表现</h1>
+        <p class="pro-lead">负荷、配速、心率、耐力和戈壁多日赛准备度。</p>
+    </div>
+    <div class="dashboard-actions">
+        <a class="action-btn" href="{{ base }}/dashboard">旧仪表板</a>
+        <a class="action-btn" href="{{ base }}/sessions">训练记录</a>
+    </div>
+</header>
+
+<section class="pro-kpi-row">
+    <div class="pro-kpi"><span>CTL</span><strong>{{ pro.performance.latest.ctl or "-" }}</strong><em>慢性负荷</em></div>
+    <div class="pro-kpi"><span>ATL</span><strong>{{ pro.performance.latest.atl or "-" }}</strong><em>急性疲劳</em></div>
+    <div class="pro-kpi"><span>TSB</span><strong>{{ pro.performance.latest.tsb or "-" }}</strong><em>训练平衡</em></div>
+    <div class="pro-kpi"><span>ACWR</span><strong>{{ pro.performance.latest.acwr or "-" }}</strong><em>急慢性比</em></div>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>PMC / ACWR 风险带</h2>
+        <span>{{ pro.narrative.trend_judgement.message }}</span>
+    </div>
+    <div class="pro-chart-grid">
+        <div><canvas id="pmcChart" height="280"></canvas></div>
+        <div><canvas id="acwrChart" height="280"></canvas></div>
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>周跑量与训练压力</h2>
+            <span>{{ pro.narrative.trend_judgement.weeks_available }} 周</span>
+        </div>
+        <canvas id="weeklyChart" height="260"></canvas>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>心率分区</h2>
+            <span>Easy {{ pro.performance.zone_easy_pct if pro.performance.zone_easy_pct is not none else "-" }}%</span>
+        </div>
+        <canvas id="zoneChart" height="260"></canvas>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>最近关键跑步</h2>
+        <span>单次训练入口</span>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>日期</th><th>类型</th><th>距离</th><th>配速</th><th>心率</th><th>TSS</th><th>漂移</th><th>效率</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in pro.performance.recent_key_sessions %}
+                <tr onclick="location.href='{{ base }}/sessions/{{ s.id }}'">
+                    <td>{{ s.start_time[:10] if s.start_time else "-" }}</td>
+                    <td>{{ s.training_type or s.sport|sport_cn }}</td>
+                    <td>{{ "%.1f"|format(s.distance_km) if s.distance_km else "-" }} km</td>
+                    <td>{{ s.avg_pace_sec|pace }}</td>
+                    <td>{{ s.avg_hr or "-" }}</td>
+                    <td>{{ "%.0f"|format(s.hr_tss) if s.hr_tss else "-" }}</td>
+                    <td>{{ "%.1f"|format(s.hr_drift_pct) if s.hr_drift_pct else "-" }}%</td>
+                    <td>{{ "%.2f"|format(s.efficiency_factor) if s.efficiency_factor else "-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const charts = {{ pro.charts|tojson }};
+function hasData(values) { return Array.isArray(values) && values.some(v => v !== null && v !== undefined && Number(v) !== 0); }
+function drawNoData(canvasId, text) {
+    const canvas = document.getElementById(canvasId);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(Math.round(rect.width), 260);
+    canvas.height = Math.max(Math.round(rect.height), 180);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#F8F5F0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#E2D8CC';
+    ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+    ctx.fillStyle = '#7C7065';
+    ctx.font = '600 14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+}
+
+if (charts.pmc.labels.length) {
+    new Chart(document.getElementById('pmcChart'), {
+        type: 'line',
+        data: {
+            labels: charts.pmc.labels,
+            datasets: [
+                { label: 'CTL', data: charts.pmc.ctl, borderColor: '#246A8F', pointRadius: 0, tension: 0.25 },
+                { label: 'ATL', data: charts.pmc.atl, borderColor: '#D95745', pointRadius: 0, tension: 0.25 },
+                { label: 'TSB', data: charts.pmc.tsb, borderColor: '#167C6B', pointRadius: 0, tension: 0.25 }
+            ]
+        },
+        options: { responsive: true, interaction: { mode: 'index', intersect: false } }
+    });
+    new Chart(document.getElementById('acwrChart'), {
+        type: 'line',
+        data: {
+            labels: charts.pmc.labels,
+            datasets: [
+                { label: 'ACWR', data: charts.pmc.acwr, borderColor: '#7C4A7E', backgroundColor: 'rgba(124,74,126,0.08)', fill: true, pointRadius: 0, tension: 0.25 },
+                { label: '安全上限 1.3', data: charts.pmc.labels.map(() => 1.3), borderColor: '#C8872B', borderDash: [4,4], pointRadius: 0 },
+                { label: '危险 1.5', data: charts.pmc.labels.map(() => 1.5), borderColor: '#D95745', borderDash: [4,4], pointRadius: 0 }
+            ]
+        },
+        options: { responsive: true, scales: { y: { min: 0 } } }
+    });
+} else {
+    drawNoData('pmcChart', '缺少 PMC 负荷数据');
+    drawNoData('acwrChart', '缺少 ACWR 数据');
+}
+
+if (charts.weekly.labels.length) {
+    new Chart(document.getElementById('weeklyChart'), {
+        type: 'bar',
+        data: {
+            labels: charts.weekly.labels,
+            datasets: [
+                { label: '跑量 km', data: charts.weekly.run_km, backgroundColor: '#167C6B', borderRadius: 5 },
+                { label: 'hrTSS', data: charts.weekly.total_tss, backgroundColor: '#C8872B', borderRadius: 5, yAxisID: 'y1' }
+            ]
+        },
+        options: { responsive: true, scales: { y1: { position: 'right', grid: { display: false } } } }
+    });
+} else {
+    drawNoData('weeklyChart', '缺少周跑量数据');
+}
+
+if (hasData(charts.zones.values)) {
+    new Chart(document.getElementById('zoneChart'), {
+        type: 'doughnut',
+        data: { labels: charts.zones.labels, datasets: [{ data: charts.zones.values, backgroundColor: ['#8BC6A4', '#167C6B', '#C8872B', '#D95745', '#7C4A7E'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+} else {
+    drawNoData('zoneChart', '缺少心率分区数据');
+}
+</script>
+{% endblock %}

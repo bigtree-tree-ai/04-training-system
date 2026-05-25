@@ -104,6 +104,115 @@ def test_empty_database_pages_do_not_crash(monkeypatch, tmp_path):
     assert client.get("/api/summary").status_code == 200
 
 
+def test_professional_api_exposes_explainable_contract(monkeypatch, tmp_path):
+    _use_temp_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)
+
+    from training.web.app import app
+
+    client = TestClient(app)
+    response = client.get("/api/v1/pro/today")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["narrative"]["conclusion"]["stop_conditions"]
+    assert [item["domain"] for item in payload["risk_matrix"]] == [
+        "负荷风险",
+        "疼痛风险",
+        "康复风险",
+        "营养恢复",
+    ]
+    assert payload["charts"]["readiness_waterfall"]["labels"]
+    assert {"pmc", "weekly", "zones", "sleep_recovery", "pain_load"}.issubset(payload["charts"])
+    assert len(payload["framework_modules"]) == 5
+    assert payload["evidence_matrix"]["运动训练学"]
+    assert payload["data_quality"]["evidence_count"] >= 5
+    assert payload["audit"]["input_version_hash"]
+
+    for path, expected_key in (
+        ("/api/v1/pro/data-center", "fit_library"),
+        ("/api/v1/pro/performance", "performance"),
+        ("/api/v1/pro/rehab", "rehab"),
+        ("/api/v1/pro/nutrition", "nutrition_plan"),
+        ("/api/v1/pro/evidence-model", "model_card"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert expected_key in response.json()
+
+
+def test_professional_pages_render_empty_database(monkeypatch, tmp_path):
+    _use_temp_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)
+
+    from training.web.app import app
+
+    client = TestClient(app)
+    for path in ("/", "/data-center", "/performance", "/rehab", "/nutrition", "/evidence-model"):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert "运动 AI 专业版" in response.text or "专业版" in response.text
+
+
+def test_professional_high_risk_output_is_rehab_conservative(monkeypatch, tmp_path):
+    _use_temp_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)
+
+    from training.web.app import app
+
+    client = TestClient(app)
+    today = date.today().isoformat()
+    conn = db.get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO daily_load (date, daily_tss, atl, ctl, tsb, acwr, monotony, training_status)
+            VALUES (?, 95, 72, 39, -33, 1.64, 2.4, 'Overreaching')
+            """,
+            (today,),
+        )
+        conn.execute(
+            """
+            INSERT INTO training_plan (planned_date, workout_type, description, target_distance_km, target_hr_zone)
+            VALUES (?, 'Interval', '6x800m', 9.0, 'Z4-Z5')
+            """,
+            (today,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    checkin_response = client.post(
+        "/api/v1/checkins",
+        json={
+            "date": today,
+            "sleep_hours": 5.5,
+            "sleep_quality": 40,
+            "fatigue_level": 5,
+            "soreness_level": 6,
+            "pain_knee": 8,
+            "pain_back": 3,
+            "hydration_ml": 400,
+            "caffeine_mg": 160,
+            "injury_notes": "膝盖刺痛，落地不稳",
+            "nutrition_notes": "空腹，只喝咖啡",
+        },
+    )
+    assert checkin_response.status_code == 200
+
+    payload = client.get("/api/v1/pro/today?refresh=true").json()
+    risks = {item["domain"]: item for item in payload["risk_matrix"]}
+
+    assert payload["recommendation"]["risk_level"] == "high"
+    assert payload["recommendation"]["workout_type"] == "Recovery / Rest"
+    assert risks["疼痛风险"]["level"] == "high"
+    assert risks["负荷风险"]["level"] == "high"
+    assert risks["营养恢复"]["level"] in {"moderate", "high"}
+    assert any("疼痛" in item for item in payload["narrative"]["conclusion"]["stop_conditions"])
+    assert any("不执行间歇" in item for item in payload["narrative"]["conclusion"]["stop_conditions"])
+    assert any("REDs" in flag or "能量" in flag for flag in payload["nutrition"]["reds_flags"])
+
+
 def test_full_user_flow_checkin_recommendation_and_confirm(monkeypatch, tmp_path):
     _use_temp_db(monkeypatch, tmp_path)
     monkeypatch.delenv("TRAIN_AUTH_REQUIRED", raising=False)

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}康复风险 — 运动 AI 专业版{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">REHAB RISK</div>
+        <h1>康复风险</h1>
+        <p class="pro-lead">膝/背疼痛、术后恢复、负荷耐受、红旗信号和返跑进阶。</p>
+    </div>
+    <a class="action-btn" href="{{ base }}/recovery">旧恢复页</a>
+</header>
+
+<section class="pro-decision-hero risk-{{ pro.rehab.status.level }}">
+    <div class="pro-decision-main">
+        <div class="decision-meta">
+            <span class="risk-pill risk-{{ pro.rehab.status.level }}">{{ pro.rehab.status.level|upper }}</span>
+            <span class="confirm-pill">康复保守优先</span>
+        </div>
+        <h2>{{ pro.rehab.current_injury or "当前未记录明确伤痛" }}</h2>
+        <p>{{ pro.rehab.status.rule }}</p>
+    </div>
+    <div class="pro-score-stack">
+        <div class="pro-score"><strong>{{ pro.features.recovery_score }}</strong><span>恢复</span></div>
+        <div class="pro-score-row"><span>疼痛 {{ pro.features.pain_risk }}</span><span>伤病 {{ pro.features.injury_risk }}</span></div>
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>负荷 - 疼痛关系</h2>
+            <span>晨检 + TSS</span>
+        </div>
+        <canvas id="painLoadChart" height="280"></canvas>
+        <p class="pro-section-note">没有散点时表示近期缺少主观疼痛记录；这会降低康复判断置信度。</p>
+    </article>
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>红旗停止条件</h2>
+            <span>不做诊断</span>
+        </div>
+        <ul class="pro-reason-list">
+            {% for item in pro.rehab.red_flags %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>返跑进阶</h2>
+        <span>参与 -> 专项 -> 表现</span>
+    </div>
+    <div class="lineage-steps rehab-steps">
+        {% for stage in pro.rehab.progression %}
+        <div>
+            <strong>{{ stage.stage }}</strong>
+            <span>{{ stage.criterion }}</span>
+            <em>{{ stage.action }}</em>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>风险矩阵</h2>
+        <span>训练建议必须服从安全审核</span>
+    </div>
+    <div class="risk-matrix">
+        {% for risk in pro.risk_matrix %}
+        <div class="risk-matrix-row risk-{{ risk.level }}">
+            <div><strong>{{ risk.domain }}</strong><span>{{ risk.signal }}</span></div>
+            <div class="risk-level">{{ risk.level }}</div>
+            <p>{{ risk.rule }}</p>
+            <p>{{ risk.action }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const points = {{ pro.charts.pain_load.points|tojson }};
+new Chart(document.getElementById('painLoadChart'), {
+    type: 'scatter',
+    data: {
+        datasets: [{
+            label: '疼痛 vs TSS',
+            data: points,
+            parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+            backgroundColor: points.map(p => p.y >= 7 ? '#D95745' : p.y >= 4 ? '#C8872B' : '#167C6B'),
+            pointRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { tooltip: { callbacks: { label: ctx => `${ctx.raw.date}: TSS ${ctx.raw.x}, 疼痛 ${ctx.raw.y}` } } },
+        scales: { x: { title: { display: true, text: '每日 TSS' } }, y: { min: 0, max: 10, title: { display: true, text: '疼痛/酸痛 0-10' } } }
+    }
+});
+</script>
+{% endblock %}

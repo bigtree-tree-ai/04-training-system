@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
 from training import config
 from training.storage.db import init_db
@@ -13,9 +13,13 @@ from training.storage.queries import get_weekly_summaries, get_ai_reports
 from training.services.dashboard_service import get_dashboard_data
 from training.services.session_service import get_session_detail
 from training.services.plan_service import get_plan_calendar
+from training.application.professional import ProfessionalDashboardService
 from training.application.today import TodayService
 from training.web.api import router as api_router
+from training.web.product_api import router as product_api_router
 from training.web.auth import require_basic_auth
+from training.product.accounts import ProductAuthService
+from training.product.repository import ProductRepository
 from training.content.interpretations import (
     interpret_ctl, interpret_tsb, interpret_acwr, interpret_vo2max,
     interpret_training_status, interpret_hr_drift, interpret_marathon_shape,
@@ -41,6 +45,7 @@ static_dir = Path(__file__).parent / "static"
 templates = Jinja2Templates(directory=str(templates_dir))
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 app.include_router(api_router, prefix="/api")
+app.include_router(product_api_router, prefix="/api/product")
 
 
 def format_pace(seconds):
@@ -114,12 +119,142 @@ templates.env.globals['interpret_comparison_metric'] = interpret_comparison_metr
 @app.on_event("startup")
 def startup():
     init_db()
+    ProductAuthService().ensure_bootstrap_admin()
 
 
 @app.get("/", response_class=HTMLResponse)
 async def today_view(request: Request):
-    data = TodayService().get_today()
-    return templates.TemplateResponse(request, "today.html", {"today": data})
+    data = ProfessionalDashboardService().get_today_decision()
+    return templates.TemplateResponse(request, "professional_today.html", {"pro": data})
+
+
+@app.get("/data-center", response_class=HTMLResponse)
+async def data_center_view(request: Request):
+    data = ProfessionalDashboardService().get_data_center()
+    return templates.TemplateResponse(request, "professional_data_center.html", {"pro": data})
+
+
+@app.get("/performance", response_class=HTMLResponse)
+async def performance_view(request: Request):
+    data = ProfessionalDashboardService().get_performance()
+    return templates.TemplateResponse(request, "professional_performance.html", {"pro": data})
+
+
+@app.get("/rehab", response_class=HTMLResponse)
+async def rehab_view(request: Request):
+    data = ProfessionalDashboardService().get_rehab()
+    return templates.TemplateResponse(request, "professional_rehab.html", {"pro": data})
+
+
+@app.get("/nutrition", response_class=HTMLResponse)
+async def nutrition_view(request: Request):
+    data = ProfessionalDashboardService().get_nutrition()
+    return templates.TemplateResponse(request, "professional_nutrition.html", {"pro": data})
+
+
+@app.get("/evidence-model", response_class=HTMLResponse)
+async def evidence_model_view(request: Request):
+    data = ProfessionalDashboardService().get_evidence_model()
+    return templates.TemplateResponse(request, "professional_evidence.html", {"pro": data})
+
+
+@app.get("/product", response_class=HTMLResponse)
+async def product_home(request: Request):
+    user = ProductAuthService().get_current_user(request)
+    if user and user.get("onboarding_completed"):
+        return RedirectResponse(url=f"{ROOT_PATH}/product/today", status_code=303)
+    if user:
+        return RedirectResponse(url=f"{ROOT_PATH}/product/onboarding", status_code=303)
+    return templates.TemplateResponse(request, "product_login.html", {"user": None})
+
+
+@app.get("/goal", response_class=HTMLResponse)
+async def goal_alias():
+    return RedirectResponse(url=f"{ROOT_PATH}/product/onboarding", status_code=303)
+
+
+@app.get("/product/onboarding", response_class=HTMLResponse)
+async def product_onboarding(request: Request):
+    user = ProductAuthService().get_current_user(request)
+    if not user:
+        return RedirectResponse(url=f"{ROOT_PATH}/product", status_code=303)
+    profile = ProductRepository().get_profile(user["id"])
+    return templates.TemplateResponse(request, "product_onboarding.html", {"user": user, "profile": profile})
+
+
+@app.get("/product/today", response_class=HTMLResponse)
+async def product_today(request: Request):
+    user = ProductAuthService().get_current_user(request)
+    if not user:
+        return RedirectResponse(url=f"{ROOT_PATH}/product", status_code=303)
+    if not user.get("onboarding_completed"):
+        return RedirectResponse(url=f"{ROOT_PATH}/product/onboarding", status_code=303)
+    today = ProductRepository().build_simple_today(user)
+    return templates.TemplateResponse(request, "product_today.html", {"user": user, "today": today})
+
+
+@app.get("/product/privacy", response_class=HTMLResponse)
+async def product_privacy(request: Request):
+    user = ProductAuthService().get_current_user(request)
+    if not user:
+        return RedirectResponse(url=f"{ROOT_PATH}/product", status_code=303)
+    return templates.TemplateResponse(request, "product_privacy.html", {"user": user})
+
+
+@app.get("/product/admin", response_class=HTMLResponse)
+async def product_admin(request: Request):
+    user = ProductAuthService().get_current_user(request)
+    if not user:
+        return RedirectResponse(url=f"{ROOT_PATH}/product", status_code=303)
+    if user.get("role") != "admin":
+        return HTMLResponse("Admin role required", status_code=403)
+    users = ProductRepository().list_users()
+    return templates.TemplateResponse(request, "product_admin.html", {"user": user, "users": users})
+
+
+@app.get("/manifest.webmanifest")
+async def pwa_manifest():
+    return JSONResponse({
+        "name": "AI 运动康复教练团",
+        "short_name": "AI教练",
+        "start_url": f"{ROOT_PATH}/product/today",
+        "scope": f"{ROOT_PATH}/product/",
+        "display": "standalone",
+        "background_color": "#F6F7F4",
+        "theme_color": "#0F766E",
+        "icons": [
+            {
+                "src": f"{ROOT_PATH}/static/pwa-icon.svg",
+                "sizes": "192x192",
+                "type": "image/svg+xml",
+            }
+        ],
+    })
+
+
+@app.get("/service-worker.js")
+async def service_worker():
+    js = """
+self.addEventListener('install', event => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+self.addEventListener('push', event => {
+  const data = event.data ? event.data.json() : {};
+  event.waitUntil(self.registration.showNotification(data.title || '训练提醒', {
+    body: data.body || '查看今天的训练建议',
+    data: { url: data.url || '/product/today' }
+  }));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/product/today';
+  event.waitUntil(self.clients.openWindow(url));
+});
+"""
+    return PlainTextResponse(js, media_type="application/javascript")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

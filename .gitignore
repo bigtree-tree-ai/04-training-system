@@ -22,6 +22,7 @@ Thumbs.db
 
 # FIT data (large binary files)
 training_data/*.fit
+uploads/
 
 # Environment
 .env

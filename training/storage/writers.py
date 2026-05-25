@@ -11,6 +11,7 @@ def store_raw_ingest_event(
     external_id: str | None = None,
     occurred_at: str | None = None,
     status: str = "stored",
+    owner_user_id: int | None = None,
 ) -> str:
     """Store a raw-layer lineage event without duplicating identical payloads."""
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
@@ -20,14 +21,15 @@ def store_raw_ingest_event(
         conn.execute(
             """
             INSERT INTO raw_ingest_events (
-                source, external_id, occurred_at, payload_hash, payload_json, status
+                owner_user_id, source, external_id, occurred_at, payload_hash, payload_json, status
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(source, payload_hash) DO UPDATE SET
                 captured_at=datetime('now'),
+                owner_user_id=excluded.owner_user_id,
                 status=excluded.status
             """,
-            (source, external_id, occurred_at, payload_hash, payload_json, status),
+            (owner_user_id, source, external_id, occurred_at, payload_hash, payload_json, status),
         )
         conn.commit()
         return payload_hash
@@ -35,16 +37,18 @@ def store_raw_ingest_event(
         conn.close()
 
 
-def upsert_session(data: dict) -> int:
+def upsert_session(data: dict, owner_user_id: int | None = None) -> int:
     conn = get_conn()
     try:
         cols = [
-            'filename', 'fit_file_hash', 'sport', 'sub_sport', 'start_time',
+            'owner_user_id', 'filename', 'fit_file_hash', 'sport', 'sub_sport', 'start_time',
             'duration_sec', 'distance_km', 'total_calories', 'avg_hr', 'max_hr',
             'avg_speed_mps', 'avg_pace_sec', 'avg_cadence', 'max_cadence',
             'total_ascent', 'total_descent', 'training_effect', 'anaerobic_te',
             'avg_temperature', 'total_strides'
         ]
+        if owner_user_id is not None:
+            data = {**data, "owner_user_id": owner_user_id}
         present = {k: data[k] for k in cols if k in data}
         placeholders = ', '.join(['?'] * len(present))
         col_names = ', '.join(present.keys())

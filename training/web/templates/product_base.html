@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI 运动康复教练团{% endblock %}</title>
+    <link rel="manifest" href="{{ base }}/manifest.webmanifest">
+    <link rel="stylesheet" href="{{ base }}/static/style.css">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="product-body">
+    <nav class="product-nav">
+        <a class="product-logo" href="{{ base }}/product/today">AI 运动康复教练团</a>
+        {% if user %}
+        <div class="product-nav-links">
+            <a href="{{ base }}/product/today">今天</a>
+            <a href="{{ base }}/product/onboarding">目标</a>
+            <a href="{{ base }}/product/privacy">隐私</a>
+            {% if user.role == 'admin' %}<a href="{{ base }}/product/admin">管理</a>{% endif %}
+            <button id="logoutBtn" class="icon-text-btn" type="button">退出</button>
+        </div>
+        {% endif %}
+    </nav>
+    <main class="product-shell">
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+        window.BASE_PATH = '{{ base }}';
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                await fetch(`${window.BASE_PATH}/api/product/auth/logout`, { method: 'POST' });
+                window.location.href = `${window.BASE_PATH}/product`;
+            });
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+

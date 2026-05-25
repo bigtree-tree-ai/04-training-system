@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}证据与模型 — 运动 AI 专业版{% endblock %}
+
+{% block content %}
+<header class="pro-page-head">
+    <div>
+        <div class="eyebrow">EVIDENCE / MODEL</div>
+        <h1>证据与模型</h1>
+        <p class="pro-lead">文献库、规则阈值、模型卡、建议审计和版本记录。</p>
+    </div>
+    <a class="action-btn" href="{{ base }}/ai-insights">旧 AI 分析</a>
+</header>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>五模块理论框架</h2>
+        <span>内置推理结构</span>
+    </div>
+    <div class="framework-grid">
+        {% for module in pro.framework_modules %}
+        <article>
+            <strong>{{ module.title }}</strong>
+            <p>{{ module.question }}</p>
+            <span>{{ module.source }}</span>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>证据矩阵</h2>
+        <span>{{ pro.data_quality.evidence_count }} 条本地证据</span>
+    </div>
+    <div class="evidence-matrix">
+        {% for domain, items in pro.evidence_matrix.items() %}
+        <section>
+            <h3>{{ domain }}</h3>
+            <ul class="plain-list">
+                {% for item in items %}
+                <li>
+                    <a href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.title }}</a>
+                    <span>{{ item.source_type }} · {{ item.year or "-" }} · {{ item.evidence_level }}</span>
+                    <p>{{ item.summary }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="pro-stage-grid">
+    <article class="pro-panel">
+        <div class="pro-panel-head">
+            <h2>模型卡</h2>
+            <span>{{ pro.model_card.name }}</span>
+        </div>
+        <dl class="pro-definition-list">
+            <dt>策略</dt><dd>{{ pro.model_card.policy }}</dd>
+            <dt>输入</dt><dd>{{ pro.model_card.inputs|join(" / ") }}</dd>
+            <dt>输出</dt><dd>{{ pro.model_card.outputs|join(" / ") }}</dd>
+        </dl>
+    </article>
+    <article class="pro-panel span-2">
+        <div class="pro-panel-head">
+            <h2>建议审计</h2>
+            <span>最近 {{ pro.recommendations|length }} 条</span>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table compact">
+                <thead><tr><th>ID</th><th>日期</th><th>风险</th><th>标题</th><th>确认</th><th>状态</th></tr></thead>
+                <tbody>
+                    {% for item in pro.recommendations %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+                        <td>{{ item.recommendation_date }}</td>
+                        <td>{{ item.risk_level }}</td>
+                        <td>{{ item.title }}</td>
+                        <td>{{ "是" if item.needs_confirmation else "否" }}</td>
+                        <td>{{ item.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+
+<section class="pro-panel">
+    <div class="pro-panel-head">
+        <h2>当前建议详情</h2>
+        <span>可追溯</span>
+    </div>
+    <div class="evidence-columns">
+        <div>
+            <h3>专家投票</h3>
+            <ul class="plain-list">
+                {% for vote in pro.audit.expert_votes %}
+                <li><strong>{{ vote.expert }}</strong> {{ vote.stance }}<span>{{ vote.rationale }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h3>已知限制</h3>
+            <ul class="plain-list">
+                {% for limit in pro.model_card.known_limits %}
+                <li>{{ limit }}</li>
+                {% else %}
+                <li>当前核心输入没有明显缺口。</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+{% endblock %}

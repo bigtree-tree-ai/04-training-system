@@ -4,11 +4,12 @@
 
 ## 当前状态
 
-- 最新主线：Agentic Coach v1
+- 最新主线：Agentic Coach v1 + Productization v1
 - 线上路径：`http://101.37.238.138:8081/training/`
 - 部署目录：`/opt/training-system`
 - 服务：`training-web.service`
 - 默认入口：`/`，显示“今天”工作台
+- 小白产品入口：`/product/today`
 - 认证：生产环境启用 HTTP Basic auth，凭据来自 `/opt/training-system/.env`
 
 ## 快速开始
@@ -22,6 +23,8 @@ cd /Users/hongxing/Desktop/泓兴的外部测试CC/06-运动数据AI化/training
 本地访问：
 
 - `http://127.0.0.1:8090/`：今天
+- `http://127.0.0.1:8090/product`：小白用户注册/登录
+- `http://127.0.0.1:8090/product/today`：小白版“今天练什么”
 - `http://127.0.0.1:8090/dashboard`：传统训练仪表板
 - `http://127.0.0.1:8090/coros`：COROS 全景
 - `http://127.0.0.1:8090/api/v1/today`：今日 AI 建议 JSON
@@ -61,8 +64,18 @@ cd /Users/hongxing/Desktop/泓兴的外部测试CC/06-运动数据AI化/training
 
 - FastAPI app：`training/web/app.py`
 - API routes：`training/web/api.py`
+- Product API routes：`training/web/product_api.py`
 - 今天页：`training/web/templates/today.html`
+- 小白产品页：`training/web/templates/product_*.html`
 - 样式：`training/web/static/style.css`
+- PWA：`/manifest.webmanifest`、`/service-worker.js`
+
+### Productization v1
+
+- 账号和会话：`training/product/accounts.py`
+- 用户隔离、导出删除、后台查询：`training/product/repository.py`
+- FIT 上传首报：`training/product/uploads.py`、`training/product/reports.py`
+- 产品测试：`tests/test_productization.py`
 
 ## 主要 API
 
@@ -74,6 +87,18 @@ cd /Users/hongxing/Desktop/泓兴的外部测试CC/06-运动数据AI化/training
 - `POST /api/v1/coach/recommendations`
 - `POST /api/v1/plan/confirm`
 - `GET /api/v1/evidence/search`
+
+### 产品 API
+
+- `POST /api/product/auth/register`
+- `POST /api/product/auth/login`
+- `POST /api/product/onboarding`
+- `POST /api/product/fit/upload`
+- `GET /api/product/today/simple`
+- `GET /api/product/privacy/export`
+- `DELETE /api/product/privacy/account`
+- `POST /api/product/notifications/subscribe`
+- `GET /api/product/admin/users`
 
 ## 常用命令
 
@@ -124,5 +149,4 @@ TRAIN_AUTH_PASSWORD=...
 - 涉及部署时完成服务器服务状态和 `/training/` 路由验收
 - 最终说明 Git 状态、提交、测试结果和线上验证结果
 
-详细简报见 [docs/agentic_coach_v1_brief.md](docs/agentic_coach_v1_brief.md)，索引见 [docs/INDEX.md](docs/INDEX.md)。
-
+详细简报见 [docs/agentic_coach_v1_brief.md](docs/agentic_coach_v1_brief.md) 和 [docs/productization_v1_brief.md](docs/productization_v1_brief.md)，索引见 [docs/INDEX.md](docs/INDEX.md)。
