@@ -7,7 +7,7 @@ import hmac
 import os
 import re
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException, Request, Response
@@ -70,7 +70,9 @@ class ProductAuthService:
     def create_session(self, user_id: int, days: int = 30) -> str:
         token = secrets.token_urlsafe(32)
         token_hash = token_digest(token)
-        expires_at = (datetime.now(UTC).replace(tzinfo=None) + timedelta(days=days)).isoformat(timespec="seconds")
+        expires_at = (
+            datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days)
+        ).isoformat(timespec="seconds")
         conn = get_conn(self.db_path)
         try:
             conn.execute(
