@@ -101,9 +101,129 @@ def parse_fit_file(fpath: str) -> dict | None:
         })
 
     # --- HR Zone Splits (从record_mesgs计算) ---
-    hr_zones = compute_hr_zones(messages.get('record_mesgs', []))
+    record_mesgs = messages.get('record_mesgs', [])
+    hr_zones = compute_hr_zones(record_mesgs)
 
-    return {'session': session, 'laps': laps, 'hr_zones': hr_zones}
+    # --- science v2: GPS 轨迹点 + 步态参数 ---
+    track_points = extract_track_points(record_mesgs)
+    gait = aggregate_gait(record_mesgs)
+    session['has_track_points'] = 1 if track_points else 0
+    session['has_gait'] = 1 if gait and gait.get('sample_count') else 0
+
+    return {
+        'session': session,
+        'laps': laps,
+        'hr_zones': hr_zones,
+        'track_points': track_points,
+        'gait': gait,
+    }
+
+
+_SEMICIRCLE_TO_DEG = 180.0 / (2 ** 31)
+
+
+def _semicircle_to_deg(v):
+    if v is None:
+        return None
+    # FIT 中 lat/lon 通常是 semicircles (int32)；少数 SDK 返回度
+    try:
+        if isinstance(v, (int,)) and abs(v) > 360:
+            return v * _SEMICIRCLE_TO_DEG
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_track_points(record_mesgs: list) -> list[dict]:
+    """从 record_mesgs 提取逐秒 GPS / 海拔 / 速度 / 心率 / 步频。
+
+    返回 [{t_offset_s, lat, lon, altitude_m, hr, speed_mps, cadence, distance_m}, ...]
+    跳过完全无 GPS/海拔/HR 的纯空记录。
+    """
+    if not record_mesgs:
+        return []
+    start_ts = None
+    out: list[dict] = []
+    for rec in record_mesgs:
+        ts = rec.get('timestamp')
+        if ts is None:
+            continue
+        if start_ts is None:
+            start_ts = ts
+        try:
+            t_offset = (ts - start_ts).total_seconds()
+        except Exception:
+            continue
+
+        lat = _semicircle_to_deg(rec.get('position_lat'))
+        lon = _semicircle_to_deg(rec.get('position_long'))
+        alt = rec.get('enhanced_altitude') or rec.get('altitude')
+        hr = rec.get('heart_rate')
+        spd = rec.get('enhanced_speed') or rec.get('speed')
+        cad = rec.get('cadence') or rec.get('running_cadence')
+        dist = rec.get('distance')
+
+        if all(x is None for x in (lat, lon, alt, hr, spd)):
+            continue
+
+        out.append({
+            't_offset_s': round(t_offset, 1),
+            'lat': round(lat, 7) if lat is not None else None,
+            'lon': round(lon, 7) if lon is not None else None,
+            'altitude_m': round(float(alt), 2) if alt is not None else None,
+            'hr': int(hr) if hr is not None else None,
+            'speed_mps': round(float(spd), 3) if spd is not None else None,
+            'cadence': int(cad) if cad is not None else None,
+            'distance_m': round(float(dist), 1) if dist is not None else None,
+        })
+    return out
+
+
+def aggregate_gait(record_mesgs: list) -> dict:
+    """汇总步态参数（垂直振幅 / 触地时间 / 左右平衡 / 步长）
+
+    多数 COROS / Garmin 设备的 record_mesg 中字段名：
+      - vertical_oscillation (mm)
+      - stance_time (ms) - 触地时间
+      - stance_time_balance (% × 100，左右平衡)
+      - step_length (mm)
+      - vertical_ratio (%)
+    """
+    sums = {'vo': 0.0, 'st': 0.0, 'bal': 0.0, 'sl': 0.0, 'vr': 0.0}
+    counts = {'vo': 0, 'st': 0, 'bal': 0, 'sl': 0, 'vr': 0}
+
+    for rec in record_mesgs:
+        vo = rec.get('vertical_oscillation')
+        st = rec.get('stance_time')
+        bal = rec.get('stance_time_balance')
+        sl = rec.get('step_length')
+        vr = rec.get('vertical_ratio')
+        if vo is not None:
+            sums['vo'] += float(vo); counts['vo'] += 1
+        if st is not None:
+            sums['st'] += float(st); counts['st'] += 1
+        if bal is not None:
+            sums['bal'] += float(bal); counts['bal'] += 1
+        if sl is not None:
+            sums['sl'] += float(sl); counts['sl'] += 1
+        if vr is not None:
+            sums['vr'] += float(vr); counts['vr'] += 1
+
+    sample_count = max(counts.values()) if counts else 0
+    if sample_count == 0:
+        return {'sample_count': 0}
+
+    def avg(key):
+        return round(sums[key] / counts[key], 2) if counts[key] else None
+
+    return {
+        'avg_vertical_oscillation': avg('vo'),
+        'avg_ground_contact_time': avg('st'),
+        'avg_stance_time_balance': avg('bal'),
+        'avg_step_length_mm': avg('sl'),
+        'avg_vertical_ratio': avg('vr'),
+        'sample_count': sample_count,
+    }
 
 
 def compute_hr_zones(record_mesgs: list) -> dict:

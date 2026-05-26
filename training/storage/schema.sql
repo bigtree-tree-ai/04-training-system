@@ -565,3 +565,125 @@ CREATE TABLE IF NOT EXISTS product_admin_audit_log (
     created_at          TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_product_admin_audit_action_time ON product_admin_audit_log(action, created_at);
+
+-- =============================================================================
+-- science_v2 schema  (added by feature/science-viz-stage-a, 2026-05-26)
+-- 严格末尾追加，避免与并行 AI 在文件顶部的修改冲突
+-- =============================================================================
+
+-- session_track_points: 单次训练的逐秒 GPS / 海拔 / 速度 / 心率轨迹
+CREATE TABLE IF NOT EXISTS session_track_points (
+    session_id      INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    t_offset_s      REAL NOT NULL,
+    lat             REAL,
+    lon             REAL,
+    altitude_m      REAL,
+    hr              INTEGER,
+    speed_mps       REAL,
+    cadence         INTEGER,
+    distance_m      REAL,
+    PRIMARY KEY (session_id, t_offset_s)
+);
+CREATE INDEX IF NOT EXISTS idx_track_session ON session_track_points(session_id);
+
+-- session_gait: 步态生物力学（垂直振幅 / 触地时间 / 左右平衡 / 步长）
+CREATE TABLE IF NOT EXISTS session_gait (
+    session_id                 INTEGER PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    avg_vertical_oscillation   REAL,
+    avg_ground_contact_time    REAL,
+    avg_stance_time_balance    REAL,
+    avg_step_length_mm         REAL,
+    avg_vertical_ratio         REAL,
+    sample_count               INTEGER,
+    updated_at                 TEXT DEFAULT (datetime('now'))
+);
+
+-- injury_registry: 结构化伤病记录
+CREATE TABLE IF NOT EXISTS injury_registry (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id       INTEGER,
+    site                TEXT NOT NULL,
+    grade               TEXT NOT NULL DEFAULT 'I',
+    onset               TEXT,
+    surgery_date        TEXT,
+    current_stage       INTEGER DEFAULT 5,
+    capacity_pct        REAL,
+    last_pain_vas       REAL DEFAULT 0,
+    note                TEXT,
+    closed_at           TEXT,
+    created_at          TEXT DEFAULT (datetime('now')),
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_injury_owner_site ON injury_registry(owner_user_id, site, closed_at);
+
+-- pain_log: 疼痛 VAS 时间序列
+CREATE TABLE IF NOT EXISTS pain_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    injury_id       INTEGER REFERENCES injury_registry(id) ON DELETE CASCADE,
+    site            TEXT NOT NULL,
+    vas_0_10        REAL NOT NULL,
+    when_ts         TEXT NOT NULL,
+    note            TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_pain_site_time ON pain_log(site, when_ts);
+
+-- rehab_log: 康复处方执行记录
+CREATE TABLE IF NOT EXISTS rehab_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    injury_id       INTEGER REFERENCES injury_registry(id) ON DELETE CASCADE,
+    kind            TEXT NOT NULL,
+    dose            TEXT,
+    response_vas    REAL,
+    when_ts         TEXT NOT NULL,
+    note            TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_rehab_injury_time ON rehab_log(injury_id, when_ts);
+
+-- nutrition_intake: 摄入流水
+CREATE TABLE IF NOT EXISTS nutrition_intake (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id   INTEGER,
+    when_ts         TEXT NOT NULL,
+    kind            TEXT,
+    kcal            REAL,
+    cho_g           REAL,
+    pro_g           REAL,
+    fat_g           REAL,
+    na_mg           REAL,
+    fluid_ml        REAL,
+    caffeine_mg     REAL,
+    note            TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_nutrition_owner_time ON nutrition_intake(owner_user_id, when_ts);
+
+-- fueling_log: 长课补给计划 vs 实际
+CREATE TABLE IF NOT EXISTS fueling_log (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id              INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    planned_cho_g_per_h     REAL,
+    actual_cho_g_per_h      REAL,
+    planned_fluid_ml_per_h  REAL,
+    actual_fluid_ml_per_h   REAL,
+    planned_na_mg_per_h     REAL,
+    actual_na_mg_per_h      REAL,
+    note                    TEXT,
+    created_at              TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_fueling_session ON fueling_log(session_id);
+
+-- thresholds_history: LT/CV/VDOT 动态学习轨迹
+CREATE TABLE IF NOT EXISTS thresholds_history (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id   INTEGER,
+    kind            TEXT NOT NULL,
+    value           REAL NOT NULL,
+    learned_on      TEXT NOT NULL,
+    source          TEXT,
+    note            TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_thresholds_owner_kind ON thresholds_history(owner_user_id, kind, learned_on);
+
