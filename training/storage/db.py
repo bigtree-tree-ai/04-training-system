@@ -40,6 +40,12 @@ def _migrate(conn: sqlite3.Connection):
         ("daily_features", "owner_user_id", "INTEGER"),
         ("coach_recommendations", "owner_user_id", "INTEGER"),
         ("heartbeat_runs", "owner_user_id", "INTEGER"),
+        # science v2 增量字段（feature/science-viz-stage-a）
+        ("athlete_checkins", "session_rpe", "INTEGER"),
+        ("athlete_checkins", "session_id", "INTEGER"),
+        ("sessions", "rpe", "INTEGER"),
+        ("sessions", "has_track_points", "INTEGER DEFAULT 0"),
+        ("sessions", "has_gait", "INTEGER DEFAULT 0"),
     ]
     for table, col, dtype in migrations:
         try:

@@ -45,7 +45,9 @@ def upsert_session(data: dict, owner_user_id: int | None = None) -> int:
             'duration_sec', 'distance_km', 'total_calories', 'avg_hr', 'max_hr',
             'avg_speed_mps', 'avg_pace_sec', 'avg_cadence', 'max_cadence',
             'total_ascent', 'total_descent', 'training_effect', 'anaerobic_te',
-            'avg_temperature', 'total_strides'
+            'avg_temperature', 'total_strides',
+            # science v2 增量字段（_migrate 已 ALTER）
+            'has_track_points', 'has_gait',
         ]
         if owner_user_id is not None:
             data = {**data, "owner_user_id": owner_user_id}
@@ -170,6 +172,77 @@ def upsert_daily_load(data: dict):
             data.get('acwr'), data.get('training_status'),
         ))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def upsert_track_points(session_id: int, points: list[dict]):
+    """逐秒 GPS / 海拔 / 速度 / 心率轨迹（science v2）
+
+    幂等：先删后插（一个 session 的轨迹一次性写入）
+    """
+    if not points:
+        return 0
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM session_track_points WHERE session_id=?", (session_id,))
+        rows = [
+            (
+                session_id,
+                p.get('t_offset_s'),
+                p.get('lat'),
+                p.get('lon'),
+                p.get('altitude_m'),
+                p.get('hr'),
+                p.get('speed_mps'),
+                p.get('cadence'),
+                p.get('distance_m'),
+            )
+            for p in points
+        ]
+        conn.executemany(
+            """INSERT INTO session_track_points
+               (session_id, t_offset_s, lat, lon, altitude_m, hr, speed_mps, cadence, distance_m)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
+        )
+        conn.commit()
+        return len(rows)
+    finally:
+        conn.close()
+
+
+def upsert_gait(session_id: int, gait: dict):
+    """步态参数汇总（science v2）"""
+    if not gait or not gait.get('sample_count'):
+        return False
+    conn = get_conn()
+    try:
+        conn.execute(
+            """INSERT INTO session_gait
+               (session_id, avg_vertical_oscillation, avg_ground_contact_time,
+                avg_stance_time_balance, avg_step_length_mm, avg_vertical_ratio, sample_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(session_id) DO UPDATE SET
+                 avg_vertical_oscillation=excluded.avg_vertical_oscillation,
+                 avg_ground_contact_time=excluded.avg_ground_contact_time,
+                 avg_stance_time_balance=excluded.avg_stance_time_balance,
+                 avg_step_length_mm=excluded.avg_step_length_mm,
+                 avg_vertical_ratio=excluded.avg_vertical_ratio,
+                 sample_count=excluded.sample_count,
+                 updated_at=datetime('now')""",
+            (
+                session_id,
+                gait.get('avg_vertical_oscillation'),
+                gait.get('avg_ground_contact_time'),
+                gait.get('avg_stance_time_balance'),
+                gait.get('avg_step_length_mm'),
+                gait.get('avg_vertical_ratio'),
+                gait.get('sample_count'),
+            ),
+        )
+        conn.commit()
+        return True
     finally:
         conn.close()
 
