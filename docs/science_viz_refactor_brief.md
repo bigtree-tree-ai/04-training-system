@@ -80,12 +80,39 @@
 
 ---
 
-## 当前进度（2026-05-26 凌晨）
+## 当前进度（2026-05-26）
+
+### ✅ 阶段 A 已完成并部署上线
 
 - [x] Phase 1-3 完成（探索 + 用户对齐 + 设计）
-- [x] Plan 文件落盘（`~/.codefuse/engine/cc/plans/ai-cr-keen-sparrow.md`）
-- [x] 分支 `feature/science-viz-stage-a` 已建（基于 main，main 当前 HEAD: `6461daf`）
-- [ ] **下一步**：A.1 science/ 骨架（建目录 + `__init__.py` + `common/{schemas,athlete_profile,confidence}.py`）
+- [x] Plan 文件落盘
+- [x] A.1 science/ 骨架（training/rehab/nutrition + common 9 个模块）
+- [x] A.2 schema 8 张新表 + 5 个 ALTER 字段
+- [x] A.3 athlete_config v2 + 迁移脚本（已生效，伤病结构化）
+- [x] A.4 FIT GPS+步态解析（实测 99.85% altitude 覆盖）
+- [x] A.5 RPE 字段已就位（UI 留 C 阶段）
+- [x] A.6 三学科核心算法（Daniels/Friel/Foster/Hulin/Seiler/IOC RED-S）
+- [x] A.7 35 个 science 单测 + 138 全套件 PASSED 零回归
+- [x] A.8 部署阿里云：main `e14f8d4`，service active，8 张新表已在线，API 200
+- [x] 验收文档：`docs/stage_a_acceptance.md`
+
+### ⏳ 阶段 B（下一步）
+
+分支：`feature/science-viz-stage-b`（待建）
+- 迁移 `interpretations.py` 到 `science/*/prescriptions.py`
+- LT/CV 动态学习管线
+- LLM few-shot + 结构化 schema
+- 康复个体化（伤病结构化已就位，可深度用）
+- 营养完整管线（nutrition_intake 表已就位，可开始记录）
+- 阶段 B 验收 + 部署（feature 分支 → rebase main → 部署）
+
+### ⏳ 阶段 C
+
+分支：`feature/science-viz-stage-c`
+- ECharts/Leaflet/Alpine.js/HTMX
+- 一/二/三级页面重做
+- session_detail GPS+海拔联动 + HR/Pace 三轴时序
+- 信赖感顶栏
 
 ---
 
