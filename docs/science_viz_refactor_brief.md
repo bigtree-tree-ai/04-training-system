@@ -106,14 +106,16 @@
 - B.6 23 个新测，161 全套件 PASSED；main `8b3a29b` 部署阿里云
 - 验收：`docs/stage_b_acceptance.md`；日志：`docs/CHANGELOG.md`
 
-### ⏳ 阶段 C（进行中）
+### ✅ 阶段 C 已完成并部署上线（2026-05-26）
 
-分支：`feature/science-viz-stage-c`
-- ECharts 5 + Leaflet + Alpine.js + HTMX（CDN）
-- professional_v2_today（决策台 + PMC + 风险雷达）
-- professional_v2_session（GPS 地图 + 海拔剖面 + HR/Pace 三轴）
-- 信赖感顶栏（confidence + 模型卡）
-- api_v2 路由
+- C.1 api_v2 5 条路由（today / session full / trends load / trends zones / sessions recent）+ ECharts/Leaflet CDN + `.pv2-*` namespace CSS
+- C.2 一级决策台 v2：信赖感顶栏 + 决策卡（GO/CAUTION/HIGH RISK）+ 三栏卡 + PMC 长曲线 + 风险雷达 6 维 + 课卡墙
+- C.3 三级全息解剖 v2：Leaflet GPS 配速色阶 + 海拔剖面 + HR/配速/步频三轴时序 + 心率分区饼 + 步态雷达 + 分圈表
+- C.4 二级周月趋势 v2：180 天 PMC + ACWR 风险带（绿/红 markArea）+ 12 周心率分区堆叠
+- C.5 验收：本地全部 HTTP 200，pytest 161 全绿
+- 验收：`docs/stage_c_acceptance.md`
+
+入口：`http://101.37.238.138:8081/training/v2/today`
 
 ---
 

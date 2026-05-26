@@ -17,6 +17,7 @@ from training.application.professional import ProfessionalDashboardService
 from training.application.today import TodayService
 from training.web.api import router as api_router
 from training.web.product_api import router as product_api_router
+from training.web.api_v2 import router as api_v2_router
 from training.web.auth import require_basic_auth
 from training.product.accounts import ProductAuthService
 from training.product.repository import ProductRepository
@@ -46,6 +47,7 @@ templates = Jinja2Templates(directory=str(templates_dir))
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 app.include_router(api_router, prefix="/api")
 app.include_router(product_api_router, prefix="/api/product")
+app.include_router(api_v2_router, prefix="/api/v2")
 
 
 def format_pace(seconds):
@@ -341,3 +343,25 @@ async def coros_view(request: Request):
     from training.services.coros_service import get_coros_dashboard_data
     data = get_coros_dashboard_data(get_coros_overview())
     return templates.TemplateResponse(request, "coros.html", {"coros": data})
+
+
+# ===== Professional v2 (科学知识体系 + 可视化重构) =====
+
+@app.get("/v2", response_class=HTMLResponse)
+async def v2_today(request: Request):
+    return templates.TemplateResponse(request, "professional_v2_today.html", {})
+
+
+@app.get("/v2/today", response_class=HTMLResponse)
+async def v2_today_alias(request: Request):
+    return templates.TemplateResponse(request, "professional_v2_today.html", {})
+
+
+@app.get("/v2/sessions/{session_id}", response_class=HTMLResponse)
+async def v2_session(request: Request, session_id: int):
+    return templates.TemplateResponse(request, "professional_v2_session.html", {"session_id": session_id})
+
+
+@app.get("/v2/trends", response_class=HTMLResponse)
+async def v2_trends(request: Request):
+    return templates.TemplateResponse(request, "professional_v2_trends.html", {})

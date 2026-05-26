@@ -1,5 +1,24 @@
 # Changelog — 科学知识体系重构
 
+## 2026-05-26 阶段 C：可视化重构 + 三级页面
+
+### Added
+- `training/web/api_v2.py` — v2 数据 API（5 条路由，只读）
+- `training/web/static/v2/pv2.css` — `.pv2-*` namespace CSS（零冲突）
+- `templates/professional_v2_today.html` + `pv2_today.js` — 决策台（PMC + 风险雷达 + 三栏卡 + 信赖感顶栏）
+- `templates/professional_v2_session.html` + `pv2_session.js` — 单次全息解剖（Leaflet GPS 配速色阶 + 海拔剖面 + HR/Pace/Cadence 三轴 + 心率分区 + 步态雷达 + 分圈表）
+- `templates/professional_v2_trends.html` + `pv2_trends.js` — 周月趋势（180d PMC + ACWR 风险带 + 12w 心率分区堆叠）
+- ECharts 5.5.0 + Leaflet 1.9.4 通过 CDN 引入
+
+### Changed
+- `app.py` 追加 4 条 v2 路由（`/v2`、`/v2/today`、`/v2/sessions/{id}`、`/v2/trends`），旧路由全部保留
+
+### Deploy
+- 三级页面本地冒烟全部 HTTP 200
+- main HEAD 已部署阿里云
+
+---
+
 ## 2026-05-26 阶段 B：分析升级 + 个体化建议
 
 ### Added

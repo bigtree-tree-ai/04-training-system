@@ -1,0 +1,40 @@
+{% set ROOT_PATH = request.scope.get('root_path','') %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>周月趋势 — Professional v2</title>
+<link rel="stylesheet" href="{{ ROOT_PATH }}/static/v2/pv2.css">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body class="pv2-body">
+<div class="pv2-shell">
+
+  <div class="pv2-topbar">
+    <div>
+      <span class="pv2-brand">周月趋势</span>
+      <a href="{{ ROOT_PATH }}/v2/today">今日</a>
+      <a href="{{ ROOT_PATH }}/v2/trends">趋势</a>
+    </div>
+    <div class="pv2-trust"><span class="pv2-trust-dot"></span><span>历史数据</span></div>
+  </div>
+
+  <div class="pv2-card" style="margin-bottom: 16px;">
+    <h3>训练负荷长期趋势 · CTL/ATL/TSB（180 天）</h3>
+    <div id="pv2-load-long" class="pv2-chart-tall"></div>
+  </div>
+
+  <div class="pv2-card" style="margin-bottom: 16px;">
+    <h3>ACWR 风险带（绿带 0.8–1.3 安全 / 红带 >1.5 高风险）</h3>
+    <div id="pv2-acwr-band" style="height: 280px;"></div>
+  </div>
+
+  <div class="pv2-card">
+    <h3>周心率分区堆叠（Z1-Z5 时间分钟）</h3>
+    <div id="pv2-zone-stack" style="height: 320px;"></div>
+  </div>
+
+</div>
+<script src="{{ ROOT_PATH }}/static/v2/pv2_trends.js"></script>
+</body>
+</html>

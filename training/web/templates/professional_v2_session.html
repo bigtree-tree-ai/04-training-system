@@ -1,0 +1,67 @@
+{% set ROOT_PATH = request.scope.get('root_path','') %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>训练全息解剖 — Professional v2</title>
+<link rel="stylesheet" href="{{ ROOT_PATH }}/static/v2/pv2.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+.pv2-leaflet-tile { filter: saturate(0.85); }
+.pv2-trace-info { background: rgba(15,23,42,.85); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; }
+</style>
+</head>
+<body class="pv2-body">
+<div class="pv2-shell">
+
+  <div class="pv2-topbar">
+    <div>
+      <span class="pv2-brand">单次全息解剖</span>
+      <a href="{{ ROOT_PATH }}/v2/today">← 返回决策台</a>
+    </div>
+    <div class="pv2-trust"><span class="pv2-trust-dot"></span><span>Session #{{ session_id }}</span></div>
+  </div>
+
+  <div class="pv2-card" style="margin-bottom: 16px;">
+    <h3 id="pv2-session-title">加载中...</h3>
+    <div class="pv2-meta" id="pv2-session-meta"></div>
+  </div>
+
+  <div class="pv2-grid pv2-grid-12" style="margin-bottom: 16px;">
+    <div class="pv2-card" style="grid-column: span 8;">
+      <h3>GPS 轨迹（配速色阶）+ 海拔剖面联动</h3>
+      <div id="pv2-map" class="pv2-map"></div>
+      <div id="pv2-elev" class="pv2-chart" style="height: 160px; margin-top: 8px;"></div>
+    </div>
+    <div class="pv2-card" style="grid-column: span 4;">
+      <h3>心率分区</h3>
+      <div id="pv2-zone-pie" class="pv2-chart-tall"></div>
+    </div>
+  </div>
+
+  <div class="pv2-card" style="margin-bottom: 16px;">
+    <h3>HR / 配速 / 步频 三轴时间序列（拖动缩放）</h3>
+    <div id="pv2-triaxis" style="height: 380px;"></div>
+  </div>
+
+  <div class="pv2-grid pv2-grid-2" style="margin-bottom: 16px;">
+    <div class="pv2-card">
+      <h3>步态参数（如有）</h3>
+      <div id="pv2-gait-radar" class="pv2-chart"></div>
+    </div>
+    <div class="pv2-card">
+      <h3>分圈表</h3>
+      <div id="pv2-laps"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="{{ ROOT_PATH }}/static/v2/pv2_session.js"></script>
+<script>
+  window.PV2_SESSION_ID = {{ session_id }};
+</script>
+</body>
+</html>
