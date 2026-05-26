@@ -6,11 +6,22 @@
 
 - [项目 README](../README.md)：快速开始、架构索引、命令、API、部署和验收标准。
 - [Productization v1 开发简报](productization_v1_brief.md)：多用户、小白 onboarding、FIT 上传首报、隐私、后台和 PWA 底座。
-- [Agentic Coach v1 开发简报](agentic_coach_v1_brief.md)：本次重构内容、链路、测试、部署和后续入口。
+- [Agentic Coach v1 开发简报](agentic_coach_v1_brief.md)：教练团决策与心跳机制。
+- [科学知识体系重构接续简报](science_viz_refactor_brief.md)：双 AI 协作、三阶段路线、协作纪律。
+- [阶段 A 验收报告](stage_a_acceptance.md)：科学骨架 + 数据补齐 + 35 单测。
+- [阶段 B 验收报告](stage_b_acceptance.md)：分析升级 + 个体化 + 23 单测。
+- [阶段 C 验收报告](stage_c_acceptance.md)：可视化重构 + 三级页面 + Playwright 验证。
+- [Changelog](CHANGELOG.md)：科学重构三阶段时间线。
 
 ## 快速定位
 
-- 今天页：`training/web/templates/today.html`
+- **v2 决策台**：`training/web/templates/professional_v2_today.html` + `static/v2/pv2_today.js`
+- **v2 全息解剖**：`training/web/templates/professional_v2_session.html` + `static/v2/pv2_session.js`
+- **v2 趋势页**：`training/web/templates/professional_v2_trends.html` + `static/v2/pv2_trends.js`
+- **科学知识体系**：`training/science/{common,training,rehab,nutrition}/`
+- **SciencePrescription 聚合**：`training/application/science_today.py`
+- **v2 API**：`training/web/api_v2.py`
+- 今天页（v1）：`training/web/templates/today.html`
 - 小白产品入口：`training/web/templates/product_today.html`
 - 产品 API：`training/web/product_api.py`
 - 产品账号/隔离：`training/product/`

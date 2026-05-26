@@ -115,7 +115,20 @@
 - C.5 验收：本地全部 HTTP 200，pytest 161 全绿
 - 验收：`docs/stage_c_acceptance.md`
 
-入口：`http://101.37.238.138:8081/training/v2/today`
+入口：`http://101.37.238.138:8081/training/v2/today`（HTTP Basic Auth）
+
+部署修复（C 阶段后续）：
+- FastAPI root_path 与 nginx strip-prefix 冲突 → Jinja env globals 注入 ROOT_PATH（commit c1f99a7、485ce5c）
+- session 页 SID 注入顺序 → script 调换（commit e538bec）
+- 服务器 HEAD = `e538bec`，systemctl `training-web` active，Playwright 三页 0 错误
+
+## 三阶段全部完成
+
+| 阶段 | 提交 | 部署 | 验收 |
+|------|------|------|------|
+| A 知识体系 + 数据补齐 | `e14f8d4` | ✅ 阿里云 | 35 单测 + 138 全套件 |
+| B 分析升级 + 个体化 | `8b3a29b` | ✅ 阿里云 | 23 单测 + 161 全套件 |
+| C 可视化重构 | `e538bec` | ✅ 阿里云 | Playwright 3 页 0 错误 |
 
 ---
 

@@ -1,6 +1,13 @@
 # Changelog — 科学知识体系重构
 
-## 2026-05-26 阶段 C：可视化重构 + 三级页面
+## 2026-05-26 阶段 C：可视化重构 + 三级页面（含部署修复）
+
+### Fixed
+- v2 资源 404：FastAPI root_path 与 nginx strip-prefix 配置冲突 → 改用 Jinja env globals 注入 `ROOT_PATH` 渲染模板（c1f99a7 / 485ce5c）
+- session 页 422：`window.PV2_SESSION_ID` 注入晚于 IIFE 执行 → 调整 script 顺序（e538bec）
+- Playwright 端到端验证：3 个 v2 页面 0 console error，资源 200 正确 content-type
+
+
 
 ### Added
 - `training/web/api_v2.py` — v2 数据 API（5 条路由，只读）
