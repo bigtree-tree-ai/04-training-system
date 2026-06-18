@@ -34,7 +34,8 @@ cd /Users/hongxing/Desktop/泓兴的外部测试CC/04-training-system/training-s
 ### 数据输入
 
 - FIT 原始文件：`training/data_import/`
-- COROS MCP 同步：`training/coros/`
+- COROS 采集桥接（推荐，每日自动）：`coros-bridge` 子命令从 coros-collect 采集库桥接，见 `training/coros/collect_bridge.py`
+- COROS MCP 同步（已废弃，COROS 升级协议后报 Session not found）：`training/coros/sync.py`
 - 主观晨检：`/api/v1/checkins`
 - 运动员配置：`athlete_config.json`
 
@@ -119,6 +120,9 @@ cd /Users/hongxing/Desktop/泓兴的外部测试CC/04-training-system/training-s
 /opt/homebrew/bin/python3.14 -m training.cli coros-login
 /opt/homebrew/bin/python3.14 -m training.cli coros-sync 14
 /opt/homebrew/bin/python3.14 -m training.cli coros-overview
+
+# 从 coros-collect 采集库桥接今日数据进 AI 教练（服务器 cron 每日 04:00 自动执行）
+/opt/homebrew/bin/python3.14 -m training.cli coros-bridge
 ```
 
 ## 部署
