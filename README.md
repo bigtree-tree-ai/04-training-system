@@ -5,17 +5,17 @@
 ## 当前状态
 
 - 最新主线：Agentic Coach v1 + Productization v1
-- 线上路径：`http://101.37.238.138:8081/training/`
+- 线上路径：`https://bigtree.ink/training/`（服务器端口 8082，nginx 反代）
 - 部署目录：`/opt/training-system`
 - 服务：`training-web.service`
 - 默认入口：`/`，显示“今天”工作台
 - 小白产品入口：`/product/today`
-- 认证：生产环境启用 HTTP Basic auth，凭据来自 `/opt/training-system/.env`
+- 认证：已于 2026-05-27 关闭 HTTP Basic auth（`TRAIN_AUTH_REQUIRED=0`），`https://bigtree.ink/training/` 可直访无需账号；`.env` 中 `TRAIN_AUTH_USER/PASSWORD` 保留但不再被 auth 中间件读取
 
 ## 快速开始
 
 ```bash
-cd /Users/hongxing/Desktop/泓兴的外部测试CC/06-运动数据AI化/training-system
+cd /Users/hongxing/Desktop/泓兴的外部测试CC/04-training-system/training-system
 /opt/homebrew/bin/python3.14 -m pytest
 /opt/homebrew/bin/python3.14 -m training.cli serve --port 8090
 ```

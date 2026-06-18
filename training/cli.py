@@ -22,6 +22,7 @@ def main():
         print("  coros-login            授权COROS MCP并保存本地刷新凭据")
         print("  coros-sync [days]      通过COROS MCP同步健康/训练数据")
         print("  coros-overview         查看COROS结构化数据概览")
+        print("  coros-bridge [db]      从coros-collect采集库桥接数据进AI教练数据源")
         print("  serve                  启动Web服务")
         return
 
@@ -122,6 +123,14 @@ def main():
         result = CorosSyncService().sync(days=days)
         print("COROS MCP同步完成")
         for name, count in result["persisted"].items():
+            print(f"  {name}: {count}")
+
+    elif cmd == 'coros-bridge':
+        from training.coros.collect_bridge import bridge_from_collect
+        collect_db = sys.argv[2] if len(sys.argv) > 2 else '/opt/coros-collect/data/coros.sqlite'
+        result = bridge_from_collect(collect_db)
+        print("COROS采集数据桥接完成(从coros-collect)")
+        for name, count in result.items():
             print(f"  {name}: {count}")
 
     elif cmd == 'coros-login':
