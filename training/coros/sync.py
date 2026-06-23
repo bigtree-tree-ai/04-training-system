@@ -48,7 +48,28 @@ class CorosSyncService:
 
         try:
             if self.client is None:
-                self.client = CorosMcpClient()
+                # Token health runs only when we construct the client ourselves
+                # (daily cron). Callers passing a client (tests, manual runs)
+                # skip it. A dead refresh_token closes the run as token_expired
+                # instead of crashing the cron silently — the 11-day blackout fix.
+                from training.coros.token_health import get_valid_token
+
+                token, token_status = get_valid_token()
+                if token is None:
+                    storage.finish_sync_run(
+                        run_id,
+                        "token_expired",
+                        token_status["message"],
+                        tool_results,
+                    )
+                    return {
+                        "success": False,
+                        "run_id": run_id,
+                        "token_status": token_status,
+                        "persisted": persisted,
+                        "tools": tool_results,
+                    }
+                self.client = CorosMcpClient(access_token=token)
 
             today = date.today()
             start_date = (today - timedelta(days=days - 1)).strftime("%Y%m%d")

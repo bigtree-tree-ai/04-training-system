@@ -116,31 +116,64 @@ def test_coros_sync_persists_structured_data(monkeypatch, tmp_path):
     assert overview["devices"][0]["name"] == "COROS PACE 4"
 
 
-def test_coros_sync_records_client_initialization_failure(monkeypatch, tmp_path):
+def test_coros_sync_degrades_gracefully_when_token_expired(monkeypatch, tmp_path):
+    """A dead refresh_token must NOT crash the daily cron — it closes the run
+    as token_expired and returns success=False (the 11-day blackout fix)."""
     _use_temp_db(monkeypatch, tmp_path)
 
-    from training.coros import sync
+    from training.coros import sync, token_health
 
-    class MissingAuthClient:
-        def __init__(self):
-            raise RuntimeError("COROS auth is missing")
+    broken = {
+        "state": "refresh_failed",
+        "expires_in_days": -0.5,
+        "access_token": None,
+        "message": "refresh 失败,需重新 coros-login",
+    }
+    monkeypatch.setattr(token_health, "get_valid_token", lambda: (None, broken))
 
-    monkeypatch.setattr(sync, "CorosMcpClient", MissingAuthClient)
+    result = sync.CorosSyncService().sync(days=14)
 
-    with pytest.raises(RuntimeError, match="COROS auth is missing"):
-        sync.CorosSyncService().sync(days=14)
+    assert result["success"] is False
+    assert result["token_status"]["state"] == "refresh_failed"
 
     conn = db.get_conn()
     try:
         row = conn.execute(
-            "SELECT days, status, message FROM coros_sync_runs ORDER BY id DESC LIMIT 1"
+            "SELECT status, message FROM coros_sync_runs ORDER BY id DESC LIMIT 1"
         ).fetchone()
     finally:
         conn.close()
 
-    assert row["days"] == 14
+    assert row["status"] == "token_expired"
+    assert "coros-login" in row["message"]
+
+
+def test_coros_sync_records_client_failure_when_token_valid(monkeypatch, tmp_path):
+    """When the token is fine but CorosMcpClient itself blows up, sync still
+    raises and records status=failed (the original fail-loud path)."""
+    _use_temp_db(monkeypatch, tmp_path)
+
+    from training.coros import sync, token_health
+
+    ok = {"state": "ok", "access_token": "AT", "expires_in_days": 30.0, "message": "ok"}
+    monkeypatch.setattr(token_health, "get_valid_token", lambda: ("AT", ok))
+
+    class BrokenClient:
+        def __init__(self, access_token=None):
+            raise RuntimeError("client init boom")
+
+    monkeypatch.setattr(sync, "CorosMcpClient", BrokenClient)
+
+    with pytest.raises(RuntimeError, match="client init boom"):
+        sync.CorosSyncService().sync(days=14)
+
+    conn = db.get_conn()
+    try:
+        row = conn.execute("SELECT status FROM coros_sync_runs ORDER BY id DESC LIMIT 1").fetchone()
+    finally:
+        conn.close()
+
     assert row["status"] == "failed"
-    assert "COROS auth is missing" in row["message"]
 
 
 def test_coros_overview_has_four_structured_sections(monkeypatch, tmp_path):
