@@ -1,5 +1,6 @@
 """athlete_profile + confidence 单元测试"""
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,8 @@ def test_load_profile_v1_falls_back_to_karvonen(tmp_path: Path):
 
 
 def test_confidence_full_signals_high():
+    # 固定 today 让测试不依赖真实运行日期(根治时间衰减炸弹);
+    # today=05-27 时,05-26 的 hrv/rhr/sleep 均在新鲜阈值内,05-25 session 在 7 天内
     c = score_confidence(
         has_today_load=True,
         has_today_checkin=True,
@@ -66,6 +69,7 @@ def test_confidence_full_signals_high():
         last_session_date="2026-05-25",
         profile_complete=True,
         injuries_structured=True,
+        today=date(2026, 5, 27),
     )
     assert c.score >= 0.8
     assert c.level == "high"

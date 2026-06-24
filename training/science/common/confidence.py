@@ -31,7 +31,7 @@ WEIGHTS = {
 }
 
 
-def _stale(latest: Optional[str], max_days: int) -> bool:
+def _stale(latest: Optional[str], max_days: int, today: Optional[date] = None) -> bool:
     if not latest:
         return True
     try:
@@ -41,7 +41,8 @@ def _stale(latest: Optional[str], max_days: int) -> bool:
             d = datetime.fromisoformat(latest).date()
         except ValueError:
             return True
-    return (date.today() - d).days > max_days
+    today = today or date.today()
+    return (today - d).days > max_days
 
 
 def score_confidence(
@@ -54,6 +55,7 @@ def score_confidence(
     last_session_date: Optional[str] = None,
     profile_complete: bool = True,
     injuries_structured: bool = False,
+    today: Optional[date] = None,
 ) -> DataConfidence:
     score = 0.0
     missing: list[str] = []
@@ -69,22 +71,22 @@ def score_confidence(
     else:
         missing.append("morning_checkin")
 
-    if hrv_latest_date and not _stale(hrv_latest_date, 3):
+    if hrv_latest_date and not _stale(hrv_latest_date, 3, today):
         score += WEIGHTS["hrv"]
     else:
         (stale if hrv_latest_date else missing).append("hrv")
 
-    if rhr_latest_date and not _stale(rhr_latest_date, 3):
+    if rhr_latest_date and not _stale(rhr_latest_date, 3, today):
         score += WEIGHTS["rhr"]
     else:
         (stale if rhr_latest_date else missing).append("rhr")
 
-    if sleep_latest_date and not _stale(sleep_latest_date, 2):
+    if sleep_latest_date and not _stale(sleep_latest_date, 2, today):
         score += WEIGHTS["sleep"]
     else:
         (stale if sleep_latest_date else missing).append("sleep")
 
-    if last_session_date and not _stale(last_session_date, 7):
+    if last_session_date and not _stale(last_session_date, 7, today):
         score += WEIGHTS["session_recent"]
     else:
         (stale if last_session_date else missing).append("session")
