@@ -92,7 +92,7 @@ def test_coros_sync_persists_structured_data(monkeypatch, tmp_path):
                 "queryTrainingLoadAssessment": "2026-05-11\nComment: Optimized\nShort-Term Load: 111\nLong-Term Load: 102\nLoad Ratio: 1.08",
                 "queryDailyHealthData": "--- 20260511 ---\nSteps: 2,351 | Calories: 103 kcal | Exercise: 1 min\nStress: Avg 19",
                 "querySleepData": "2026-05-11\nSleep Score: 58\nMain Sleep: 8h 19min\nAwake Time: 1h 0min\nAwake Count (>5 min): 1",
-                "queryHrvAssessment": "Normal Range: 48 - 74 ms\nBaseline: 61 ms\n2026-05-11:\n  HRV Avg: 68 ms — Normal",
+                "querySleepHrv": "Normal Range: 48 - 74 ms\nBaseline: 61 ms\n2026-05-11:\n  HRV Avg: 68 ms — Normal",
                 "queryRestingHeartRate": "2026-05-11: 53 bpm",
                 "queryAvgHeartRate": "2026-05-11: 60 bpm (Min: 44, Max: 88)",
                 "queryStressLevel": "2026-05-11:\nAverage Stress: 19 (Relaxed)",
