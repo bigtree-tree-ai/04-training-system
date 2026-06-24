@@ -104,7 +104,7 @@ class CorosSyncService:
                 tool_results,
             )
             persisted["hrv"] = self._call_parse_store(
-                "queryHrvAssessment",
+                "querySleepHrv",
                 {"days": days, "timezone": self.timezone},
                 parse_hrv,
                 storage.upsert_hrv,
