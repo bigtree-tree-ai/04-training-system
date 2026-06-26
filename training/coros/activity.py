@@ -1,12 +1,17 @@
 """COROS Activity (session-level) sync: records + detail + laps + FIT.
 
 4-step pipeline: querySportRecords -> getActivityDetail -> queryActivityLapData
--> downloadActivityFitFiles. Separate from sync.py (summary statistics).
+-> queryActivityFitFileDownloadUrls (per labelId) + urllib download. Separate
+from sync.py (summary statistics).
 """
 from __future__ import annotations
 
+import re
+import ssl
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
+from training import config
 from training.coros import storage
 from training.coros.parsers import (
     extract_tool_text,
@@ -14,6 +19,8 @@ from training.coros.parsers import (
     parse_activity_laps,
     parse_sport_records,
 )
+from training.data_import.fit_parser import parse_fit_file
+from training.storage.writers import upsert_gait, upsert_track_points
 
 
 class ActivitySyncService:
@@ -37,13 +44,13 @@ class ActivitySyncService:
             self.client = client
         return self.client, None
 
-    def sync(self, days: int = 7, full: bool = False) -> dict:
+    def sync(self, days: int = 7, full: bool = False, with_fit: bool = False) -> dict:
         client, token_status = self._ensure_client()
         if client is None:
             return {
                 "success": False,
                 "token_status": token_status,
-                "persisted": {"sessions": 0, "laps": 0},
+                "persisted": {"sessions": 0, "laps": 0, "fit": 0},
                 "fetched": 0,
                 "failed": [],
             }
@@ -117,18 +124,79 @@ class ActivitySyncService:
 
         n_session = storage.upsert_coros_sessions(session_rows)
         n_laps = _backfill_laps(laps_to_backfill)
+        fit_count = 0
+        if with_fit:
+            for row in session_rows:
+                try:
+                    if self._download_fit(row["label_id"], row["sport_type"]) is not None:
+                        if self._ingest_fit(row["label_id"]) is not None:
+                            fit_count += 1
+                except Exception:
+                    continue
 
         return {
             "success": True,
-            "persisted": {"sessions": n_session, "laps": n_laps},
+            "persisted": {"sessions": n_session, "laps": n_laps, "fit": fit_count},
             "fetched": len(records),
             "failed": failed,
         }
+
+    def _download_fit(self, label_id: str, sport_type: int):
+        """Download one activity's FIT via its OSS url into config.COROS_FIT_DIR. Returns Path|None."""
+        import certifi
+
+        fit_dir = config.COROS_FIT_DIR
+        fit_dir.mkdir(parents=True, exist_ok=True)
+        dest = fit_dir / f"coros_{label_id}.fit"
+        if dest.exists() and dest.stat().st_size > 0:
+            return dest
+        result = self.client.call_tool(
+            "queryActivityFitFileDownloadUrls",
+            {"labelId": str(label_id), "sportType": int(sport_type)},
+        )
+        url = _extract_fit_url(extract_tool_text(result))
+        if not url:
+            return None
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "training-system-coros-sync/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+            dest.write_bytes(resp.read())
+        return dest
+
+    def _ingest_fit(self, label_id: str):
+        """Parse the downloaded FIT and write track_points + gait for the session. Returns sid|None."""
+        from training.storage.db import get_conn
+
+        conn = get_conn()
+        try:
+            row = conn.execute(
+                "SELECT id FROM sessions WHERE filename=?", (f"coros_{label_id}.fit",)
+            ).fetchone()
+            sid = row["id"] if row else None
+        finally:
+            conn.close()
+        if sid is None:
+            return None
+        fit_path = config.COROS_FIT_DIR / f"coros_{label_id}.fit"
+        result = parse_fit_file(str(fit_path))
+        if not result:
+            return sid
+        upsert_track_points(sid, result.get("track_points", []))
+        upsert_gait(sid, result.get("gait") or {})
+        return sid
 
 
 def _ts_to_local(ts: int) -> str:
     """Unix timestamp -> 'YYYY-MM-DD HH:MM:SS' (treated as UTC; COROS ts are UTC seconds)."""
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _extract_fit_url(text: str) -> str | None:
+    """Pull the first https://....fit download URL out of the tool response text."""
+    m = re.search(r"https://\S+?\.fit", text)
+    return m.group(0) if m else None
 
 
 def _backfill_laps(items: list[tuple[str, list[dict]]]) -> int:

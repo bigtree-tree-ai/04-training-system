@@ -173,3 +173,82 @@ def test_activity_sync_persists(monkeypatch, tmp_path):
     n_laps = conn.execute("SELECT COUNT(*) c FROM laps").fetchone()["c"]
     conn.close()
     assert n_laps == 1
+
+
+def test_extract_fit_url():
+    from training.coros.activity import _extract_fit_url
+
+    text = (
+        "Activity FIT file download URL(s):\n"
+        "1. 478426540852413118.fit\n"
+        "   https://oss.coros.com/fit/472868445151576164/478426540852413118.fit"
+    )
+    assert (
+        _extract_fit_url(text)
+        == "https://oss.coros.com/fit/472868445151576164/478426540852413118.fit"
+    )
+    assert _extract_fit_url("no url here") is None
+
+
+def test_fit_ingest_parses_and_writes_track_points(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    _temp_db(monkeypatch, tmp_path)
+    fit_dir = tmp_path / "fit"
+    fit_dir.mkdir()
+    monkeypatch.setattr("training.config.COROS_FIT_DIR", fit_dir)
+
+    from training.coros import activity
+    from training.coros.storage import upsert_coros_sessions
+    from training.storage.db import get_conn
+
+    upsert_coros_sessions(
+        [
+            {
+                "label_id": "123",
+                "start_time": "2026-01-01 00:00:00",
+                "sport": "Run",
+                "distance_km": 5.0,
+            }
+        ]
+    )
+    (fit_dir / "coros_123.fit").write_bytes(b"FAKEFIT")
+
+    called = {}
+
+    def fake_parse(fpath):
+        called["parsed"] = Path(fpath)
+        return {
+            "session": {"has_track_points": 1, "has_gait": 1},
+            "track_points": [
+                {
+                    "t_offset_s": 0,
+                    "lat": 30.0,
+                    "lon": 120.0,
+                    "altitude_m": 50.0,
+                    "hr": 100,
+                    "speed_mps": 3.0,
+                    "cadence": 180,
+                    "distance_m": 0,
+                }
+            ],
+            "gait": {"sample_count": 1},
+        }
+
+    monkeypatch.setattr("training.coros.activity.parse_fit_file", fake_parse)
+
+    svc = activity.ActivitySyncService(client=object())
+    sid = svc._ingest_fit("123")
+    assert sid is not None
+    assert called["parsed"].name == "coros_123.fit"
+
+    conn = get_conn()
+    n_tp = conn.execute(
+        "SELECT COUNT(*) c FROM session_track_points WHERE session_id=?", (sid,)
+    ).fetchone()["c"]
+    n_gait = conn.execute(
+        "SELECT COUNT(*) c FROM session_gait WHERE session_id=?", (sid,)
+    ).fetchone()["c"]
+    conn.close()
+    assert n_tp == 1
+    assert n_gait == 1
