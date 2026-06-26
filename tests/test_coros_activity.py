@@ -129,3 +129,47 @@ def test_upsert_coros_sessions_dedup(monkeypatch, tmp_path):
     assert "111" in existing_coros_label_ids()
     assert upsert_coros_sessions([row]) == 0
     assert len(existing_coros_label_ids()) == 1
+
+
+def test_activity_sync_persists(monkeypatch, tmp_path):
+    _temp_db(monkeypatch, tmp_path)
+    from training.coros.activity import ActivitySyncService
+    from training.coros.storage import existing_coros_label_ids
+    from training.storage.db import get_conn
+
+    sample_records = (
+        "1. Indoor Run — 2026-06-24\n"
+        "   Location: x\n"
+        "   Time Window: startTimestamp=1782273830 | endTimestamp=1782277731\n"
+        "   Duration: 1:05:02 | Distance: 14.25 km\n"
+        "   Average Pace: 4:34 /km | Avg HR: 151 bpm | Calories: 584 kcal\n"
+        "   LabelId: 478426540852413118 | SportType: 101\n"
+    )
+    detail = (
+        "Distance: 14.25 km\nAverage Heart Rate: 151 bpm\nAverage Cadence: 193 spm\n"
+        "Calories: 584 kcal\nAerobic TE: 3.4\nAnaerobic TE: 4.2\nTraining Focus: Threshold\n"
+    )
+    laps = '{"columns":[{"name":"lapIndex"},{"name":"distance"},{"name":"avgHr"}],"data":[[1,1000,150]]}'
+
+    class FakeClient:
+        def call_tool(self, name, arguments=None):
+            return {
+                "content": [{"type": "text", "text": {
+                    "querySportRecords": sample_records,
+                    "getActivityDetail": detail,
+                    "queryActivityLapData": laps,
+                }[name]}],
+                "isError": False,
+            }
+
+    res = ActivitySyncService(FakeClient()).sync(days=7)
+    assert res["success"] is True
+    assert res["persisted"]["sessions"] == 1
+    assert res["persisted"]["laps"] == 1
+    assert "478426540852413118" in existing_coros_label_ids()
+
+    # laps must be written into the laps table (guards against the backfill bug)
+    conn = get_conn()
+    n_laps = conn.execute("SELECT COUNT(*) c FROM laps").fetchone()["c"]
+    conn.close()
+    assert n_laps == 1
