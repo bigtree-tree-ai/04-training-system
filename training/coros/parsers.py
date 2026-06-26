@@ -313,13 +313,12 @@ def _date_blocks(body: str, allow_colon: bool = False) -> list[tuple[str, str]]:
 # --- Activity (session-level) parsers ---------------------------------------
 
 _SPORT_RECORD_RE = re.compile(
-    r"\d+\.\s+(?P<sport>.+?)\s*—\s*(?P<date>\d{4}-\d{2}-\d{2})\s*\n"
-    r"\s*Location:\s*(?P<location>.*?)\s*\n"
+    r"\d+\.\s+(?P<sport>[^\n]+?)\s*—\s*(?P<date>\d{4}-\d{2}-\d{2})\s*\n"
+    r"\s*(?:Location|Start Coordinates):\s*(?P<location>[^\n]+?)\s*\n"
     r"\s*Time Window:\s*startTimestamp=(?P<start>\d+)\s*\|\s*endTimestamp=(?P<end>\d+)\s*\n"
     r"\s*Duration:\s*(?P<dur>[\d:]+)\s*\|\s*Distance:\s*(?P<dist>[\d.]+)\s*km\s*\n"
     r"\s*Average Pace:\s*(?P<pace>[\d:]+)\s*/km\s*\|\s*Avg HR:\s*(?P<hr>\d+)\s*bpm\s*\|\s*Calories:\s*(?P<cal>\d+)\s*kcal\s*\n"
     r"\s*LabelId:\s*(?P<label>\d+)\s*\|\s*SportType:\s*(?P<stype>\d+)",
-    re.DOTALL,
 )
 
 

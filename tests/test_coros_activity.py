@@ -34,6 +34,35 @@ def test_parse_sport_records():
     assert r["duration_sec"] == 1 * 3600 + 5 * 60 + 2  # 1:05:02 -> 3902
 
 
+SAMPLE_START_COORDS = """1. Outdoor Run — 2025-10-26
+   Start Coordinates: 29.795000, 119.685997
+   Time Window: startTimestamp=1761434031 | endTimestamp=1761439670
+   Duration: 1:33:59 | Distance: 21.21 km
+   Average Pace: 4:26 /km | Avg HR: 158 bpm | Calories: 1313 kcal
+   LabelId: 472869114898055471 | SportType: 100
+
+2. Outdoor Run — 2025-10-25
+   Start Coordinates: 30.301001, 120.232002
+   Time Window: startTimestamp=1761350394 | endTimestamp=1761352221
+   Duration: 30:27 | Distance: 6.26 km
+   Average Pace: 4:52 /km | Avg HR: 143 bpm | Calories: 390 kcal
+   LabelId: 472869111408394741 | SportType: 100
+"""
+
+
+def test_parse_sport_records_start_coordinates_no_crossline():
+    rows = parse_sport_records(SAMPLE_START_COORDS)
+    assert len(rows) == 2
+    # sport must NOT bleed across lines (was polluted under re.DOTALL)
+    assert rows[0]["sport"] == "Outdoor Run"
+    assert rows[0]["label_id"] == "472869114898055471"
+    assert rows[0]["sport_type"] == 100
+    assert rows[0]["distance_km"] == 21.21
+    assert rows[0]["duration_sec"] == 1 * 3600 + 33 * 60 + 59
+    assert rows[1]["label_id"] == "472869111408394741"
+    assert rows[1]["sport"] == "Outdoor Run"
+
+
 DETAIL = """🏃 Indoor Run Activity Details
 ========================================
 
