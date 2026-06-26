@@ -329,3 +329,93 @@ def _one(conn, sql: str, params: tuple = ()) -> dict:
 
 def _many(conn, sql: str, params: tuple = ()) -> list[dict]:
     return [dict(row) for row in conn.execute(sql, params).fetchall()]
+
+
+# --- Activity (session-level) sync ------------------------------------------
+
+
+def existing_coros_label_ids() -> set[str]:
+    """Return the set of labelIds already ingested (sessions.filename='coros_<id>.fit')."""
+    init_db()
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT filename FROM sessions WHERE filename LIKE 'coros_%.fit'"
+        ).fetchall()
+    finally:
+        conn.close()
+    out: set[str] = set()
+    for r in rows:
+        out.add(r["filename"][len("coros_") : -len(".fit")])
+    return out
+
+
+def upsert_coros_sessions(rows: list[dict]) -> int:
+    """Insert COROS sessions keyed by filename=coros_<labelId>.fit. Idempotent (IGNORE on dup)."""
+    if not rows:
+        return 0
+    conn = get_conn()
+    n = 0
+    try:
+        for r in rows:
+            filename = f"coros_{r['label_id']}.fit"
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO sessions
+                    (filename, sport, start_time, duration_sec, distance_km,
+                     total_calories, avg_hr, avg_pace_sec, training_effect,
+                     anaerobic_te, training_type, training_effect_label)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    filename,
+                    r.get("sport"),
+                    r["start_time"],
+                    r.get("duration_sec"),
+                    r.get("distance_km"),
+                    r.get("calories"),
+                    r.get("avg_hr"),
+                    r.get("avg_pace_sec"),
+                    r.get("training_effect"),
+                    r.get("anaerobic_te"),
+                    r.get("training_type"),
+                    r.get("training_effect_label"),
+                ),
+            )
+            n += cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return n
+
+
+def upsert_laps(session_id: int, laps: list[dict]) -> int:
+    """Insert laps for a session. lap distance_m -> distance_km. UNIQUE(session_id, lap_index)."""
+    if not laps:
+        return 0
+    conn = get_conn()
+    n = 0
+    try:
+        for lap in laps:
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO laps
+                    (session_id, lap_index, distance_km, avg_hr, max_hr,
+                     avg_pace_sec, avg_cadence)
+                VALUES (?,?,?,?,?,?,?)
+                """,
+                (
+                    session_id,
+                    lap.get("lap_index"),
+                    (lap.get("distance_m") or 0) / 1000.0,
+                    lap.get("avg_hr"),
+                    lap.get("max_hr"),
+                    lap.get("avg_pace_sec"),
+                    lap.get("avg_cadence"),
+                ),
+            )
+            n += cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return n

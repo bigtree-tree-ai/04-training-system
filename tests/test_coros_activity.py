@@ -98,3 +98,34 @@ def test_parse_activity_laps():
     assert laps[0]["distance_m"] == 1000
     assert laps[0]["avg_hr"] == 148
     assert laps[1]["avg_cadence"] == 192
+
+
+def _temp_db(monkeypatch, tmp_path):
+    from training.storage import db
+
+    test_db = tmp_path / "t.db"
+    monkeypatch.setattr(db, "DB_PATH", test_db)
+    db.init_db(str(test_db))
+
+
+def test_upsert_coros_sessions_dedup(monkeypatch, tmp_path):
+    _temp_db(monkeypatch, tmp_path)
+    from training.coros.storage import existing_coros_label_ids, upsert_coros_sessions
+
+    row = {
+        "label_id": "111",
+        "sport_type": 101,
+        "sport": "Indoor Run",
+        "start_time": "2026-06-24 13:00:00",
+        "distance_km": 14.25,
+        "avg_hr": 151,
+        "avg_pace_sec": 274,
+        "duration_sec": 3902,
+        "calories": 584,
+        "training_effect": 3.4,
+        "anaerobic_te": 4.2,
+    }
+    assert upsert_coros_sessions([row]) == 1
+    assert "111" in existing_coros_label_ids()
+    assert upsert_coros_sessions([row]) == 0
+    assert len(existing_coros_label_ids()) == 1
