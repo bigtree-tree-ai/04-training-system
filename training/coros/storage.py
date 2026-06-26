@@ -335,18 +335,24 @@ def _many(conn, sql: str, params: tuple = ()) -> list[dict]:
 
 
 def existing_coros_label_ids() -> set[str]:
-    """Return the set of labelIds already ingested (sessions.filename='coros_<id>.fit')."""
+    """Return labelIds already ingested. Matches both 'coros_<id>.fit' (new) and
+    bare '<id>.fit' (legacy COROS exports) so backfill won't duplicate history."""
     init_db()
     conn = get_conn()
     try:
         rows = conn.execute(
-            "SELECT filename FROM sessions WHERE filename LIKE 'coros_%.fit'"
+            "SELECT filename FROM sessions WHERE filename LIKE '%.fit'"
         ).fetchall()
     finally:
         conn.close()
     out: set[str] = set()
     for r in rows:
-        out.add(r["filename"][len("coros_") : -len(".fit")])
+        name = r["filename"]
+        stem = name[:-4] if name.endswith(".fit") else name
+        if stem.startswith("coros_"):
+            stem = stem[len("coros_") :]
+        if stem.isdigit():
+            out.add(stem)
     return out
 
 

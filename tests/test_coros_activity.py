@@ -74,17 +74,35 @@ LAPS_JSON = json.dumps(
         "labelId": "478426540852413118",
         "sportType": 101,
         "columns": [
-            {"name": "lapIndex", "label": "圈数"},
-            {"name": "distance", "label": "距离"},
-            {"name": "avgPace", "label": "平均配速"},
-            {"name": "avgHr", "label": "平均心率"},
-            {"name": "maxHr", "label": "最大心率"},
-            {"name": "avgPower", "label": "平均功率"},
-            {"name": "avgCadence", "label": "平均步频"},
+            {"name": "lapIndex"},
+            {"name": "distance"},
+            {"name": "avgPace"},
+            {"name": "avgHr"},
+            {"name": "maxHr"},
+            {"name": "avgCadence"},
         ],
-        "data": [
-            [1, 1000, 240, 148, 162, 250, 190],
-            [2, 1000, 235, 152, 164, 255, 192],
+        "lapGroups": [
+            {
+                "type": 10,
+                "laps": [
+                    {
+                        "lapIndex": 1,
+                        "distance": 86355,
+                        "avgPace": 347.4,
+                        "avgHr": 114,
+                        "maxHr": 124,
+                        "avgCadence": 186,
+                    },
+                    {
+                        "lapIndex": 2,
+                        "distance": 94497,
+                        "avgPace": 317.28,
+                        "avgHr": 121,
+                        "maxHr": 130,
+                        "avgCadence": 189,
+                    },
+                ],
+            }
         ],
     },
     ensure_ascii=False,
@@ -95,9 +113,9 @@ def test_parse_activity_laps():
     laps = parse_activity_laps(LAPS_JSON)
     assert len(laps) == 2
     assert laps[0]["lap_index"] == 1
-    assert laps[0]["distance_m"] == 1000
-    assert laps[0]["avg_hr"] == 148
-    assert laps[1]["avg_cadence"] == 192
+    assert laps[0]["distance_m"] == 863.55  # 86355 cm -> 863.55 m
+    assert laps[0]["avg_hr"] == 114
+    assert laps[1]["avg_cadence"] == 189
 
 
 def _temp_db(monkeypatch, tmp_path):
@@ -149,7 +167,7 @@ def test_activity_sync_persists(monkeypatch, tmp_path):
         "Distance: 14.25 km\nAverage Heart Rate: 151 bpm\nAverage Cadence: 193 spm\n"
         "Calories: 584 kcal\nAerobic TE: 3.4\nAnaerobic TE: 4.2\nTraining Focus: Threshold\n"
     )
-    laps = '{"columns":[{"name":"lapIndex"},{"name":"distance"},{"name":"avgHr"}],"data":[[1,1000,150]]}'
+    laps = '{"columns":[{"name":"lapIndex"},{"name":"distance"},{"name":"avgHr"}],"lapGroups":[{"type":10,"laps":[{"lapIndex":1,"distance":100000,"avgHr":150}]}]}'
 
     class FakeClient:
         def call_tool(self, name, arguments=None):
@@ -252,3 +270,28 @@ def test_fit_ingest_parses_and_writes_track_points(monkeypatch, tmp_path):
     conn.close()
     assert n_tp == 1
     assert n_gait == 1
+
+
+def test_existing_label_ids_handles_bare_and_prefixed(monkeypatch, tmp_path):
+    _temp_db(monkeypatch, tmp_path)
+    from training.coros.storage import existing_coros_label_ids
+    from training.storage.db import get_conn
+
+    conn = get_conn()
+    # mix: legacy bare labelId, new prefixed, and manual-named FITs (must be excluded)
+    for fn in [
+        "476612698851803136.fit",
+        "coros_478426540852413118.fit",
+        "(日常)有氧跑8-12km20260407071518.fit",
+        "杭州市跑步20260406084447.fit",
+    ]:
+        conn.execute(
+            "INSERT INTO sessions (filename, start_time) VALUES (?, '2026-01-01')", (fn,)
+        )
+    conn.commit()
+    conn.close()
+
+    ids = existing_coros_label_ids()
+    assert "476612698851803136" in ids  # legacy bare filename
+    assert "478426540852413118" in ids  # new prefixed
+    assert len(ids) == 2  # manual-named FITs excluded

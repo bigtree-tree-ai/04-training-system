@@ -399,17 +399,21 @@ _LAP_KEY = {
 
 
 def parse_activity_laps(text: str) -> list[dict]:
-    """Parse queryActivityLapData JSON ({columns:[{name}], data:[[...]]}) into lap dicts."""
+    """Parse queryActivityLapData JSON. Laps live under lapGroups[*].laps as dicts
+    keyed by column name; distance is in centimeters (-> meters here)."""
     body = clean_text(text)
     if not body.startswith("{"):
         body = extract_tool_text(text)
     obj = json.loads(body)
-    cols = [c.get("name") for c in obj.get("columns", [])]
     rows = []
-    for raw in obj.get("data", []):
-        rec = {}
-        for name, val in zip(cols, raw):
-            if name in _LAP_KEY:
-                rec[_LAP_KEY[name]] = val
-        rows.append(rec)
+    for group in obj.get("lapGroups", []):
+        for lap in group.get("laps", []):
+            rec = {}
+            for src, dst in _LAP_KEY.items():
+                if src in lap:
+                    val = lap[src]
+                    if src == "distance" and val:
+                        val = val / 100.0  # cm -> m
+                    rec[dst] = val
+            rows.append(rec)
     return rows

@@ -21,6 +21,7 @@ def main():
         print("  heartbeat [phase]      运行一次AI教练团心跳(默认morning)")
         print("  coros-login            授权COROS MCP并保存本地刷新凭据")
         print("  coros-sync [days]      通过COROS MCP同步健康/训练数据")
+        print("  activity-sync [days] [--full]  从COROS采集训练session明细(含FIT/GPS/步态)")
         print("  coros-overview         查看COROS结构化数据概览")
         print("  coros-bridge [db]      从coros-collect采集库桥接数据进AI教练数据源")
         print("  serve                  启动Web服务")
@@ -124,6 +125,20 @@ def main():
         print("COROS MCP同步完成")
         for name, count in result["persisted"].items():
             print(f"  {name}: {count}")
+
+    elif cmd == 'activity-sync':
+        from training.coros.activity import ActivitySyncService
+        full = '--full' in sys.argv
+        days = 7
+        for a in sys.argv[2:]:
+            if a.isdigit():
+                days = int(a)
+        result = ActivitySyncService().sync(days=days, full=full, with_fit=True)
+        print("COROS Activity 同步完成")
+        for name, count in (result.get("persisted") or {}).items():
+            print(f"  {name}: {count}")
+        if result.get("failed"):
+            print(f"  failed_labelIds: {len(result['failed'])}")
 
     elif cmd == 'coros-bridge':
         from training.coros.collect_bridge import bridge_from_collect
