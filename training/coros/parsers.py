@@ -308,3 +308,47 @@ def _date_blocks(body: str, allow_colon: bool = False) -> list[tuple[str, str]]:
         end = markers[index + 1].start() if index + 1 < len(markers) else len(body)
         blocks.append((parse_date(marker.group(1)), body[start:end].strip()))
     return blocks
+
+
+# --- Activity (session-level) parsers ---------------------------------------
+
+_SPORT_RECORD_RE = re.compile(
+    r"\d+\.\s+(?P<sport>.+?)\s*—\s*(?P<date>\d{4}-\d{2}-\d{2})\s*\n"
+    r"\s*Location:\s*(?P<location>.*?)\s*\n"
+    r"\s*Time Window:\s*startTimestamp=(?P<start>\d+)\s*\|\s*endTimestamp=(?P<end>\d+)\s*\n"
+    r"\s*Duration:\s*(?P<dur>[\d:]+)\s*\|\s*Distance:\s*(?P<dist>[\d.]+)\s*km\s*\n"
+    r"\s*Average Pace:\s*(?P<pace>[\d:]+)\s*/km\s*\|\s*Avg HR:\s*(?P<hr>\d+)\s*bpm\s*\|\s*Calories:\s*(?P<cal>\d+)\s*kcal\s*\n"
+    r"\s*LabelId:\s*(?P<label>\d+)\s*\|\s*SportType:\s*(?P<stype>\d+)",
+    re.DOTALL,
+)
+
+
+def _hhmmss_to_sec(s: str) -> int:
+    """'4:34' -> 274 ; '1:05:02' -> 3902."""
+    sec = 0
+    for part in s.split(":"):
+        sec = sec * 60 + int(part)
+    return sec
+
+
+def parse_sport_records(text: str) -> list[dict]:
+    """Parse querySportRecords text into a list of record dicts."""
+    rows = []
+    for m in _SPORT_RECORD_RE.finditer(clean_text(text)):
+        rows.append(
+            {
+                "label_id": m.group("label"),
+                "sport_type": int(m.group("stype")),
+                "sport": m.group("sport").strip(),
+                "date": m.group("date"),
+                "location": m.group("location").strip(),
+                "start_ts": int(m.group("start")),
+                "end_ts": int(m.group("end")),
+                "distance_km": float(m.group("dist")),
+                "avg_pace_sec": _hhmmss_to_sec(m.group("pace")),
+                "avg_hr": int(m.group("hr")),
+                "calories": int(m.group("cal")),
+                "duration_sec": _hhmmss_to_sec(m.group("dur")),
+            }
+        )
+    return rows
