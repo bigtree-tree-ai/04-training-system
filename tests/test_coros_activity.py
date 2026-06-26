@@ -1,5 +1,5 @@
 """Tests for COROS Activity (session-level) sync: parsers, storage, service, FIT."""
-from training.coros.parsers import parse_sport_records
+from training.coros.parsers import parse_activity_detail, parse_sport_records
 
 SAMPLE = """Sport Records — 2026-06-18 to 2026-06-24 (4 records)
 
@@ -26,3 +26,37 @@ def test_parse_sport_records():
     assert r["end_ts"] == 1782277731
     assert r["avg_pace_sec"] == 4 * 60 + 34  # 4:34 -> 274
     assert r["duration_sec"] == 1 * 3600 + 5 * 60 + 2  # 1:05:02 -> 3902
+
+
+DETAIL = """🏃 Indoor Run Activity Details
+========================================
+
+Workout Time: 1:05:02
+Distance: 14.25 km
+Average Pace: 4:34 /km
+Best Kilometer: 3:50 /km
+Average Heart Rate: 151 bpm
+Average Cadence: 193 spm
+Average Stride Length: 1.14 m
+Calories: 584 kcal
+Training Load: 252
+Aerobic TE: 3.4
+Anaerobic TE: 4.2
+Training Focus: Threshold
+Perceived Effort: Somewhat Tired
+"""
+
+
+def test_parse_activity_detail():
+    d = parse_activity_detail(DETAIL)
+    assert d["distance_km"] == 14.25
+    assert d["avg_hr"] == 151
+    assert d["avg_cadence"] == 193
+    assert d["calories"] == 584
+    assert d["training_load"] == 252
+    assert d["aerobic_te"] == 3.4
+    assert d["anaerobic_te"] == 4.2
+    assert d["training_focus"] == "Threshold"
+    assert d["perceived_effort"] == "Somewhat Tired"
+    assert d["best_km_sec"] == 3 * 60 + 50  # 3:50
+    assert d["avg_pace_sec"] == 4 * 60 + 34

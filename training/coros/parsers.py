@@ -352,3 +352,32 @@ def parse_sport_records(text: str) -> list[dict]:
             }
         )
     return rows
+
+
+def parse_activity_detail(text: str) -> dict:
+    """Parse getActivityDetail text into a dict of high-level metrics."""
+    body = clean_text(text)
+
+    def num(label: str, cast=float):
+        v = _match(body, rf"{re.escape(label)}:\s*([\d.]+)")
+        return cast(v) if v else None
+
+    def pace(label: str):
+        v = _match(body, rf"{re.escape(label)}:\s*(\d+:\d+(?::\d+)?)")
+        return _hhmmss_to_sec(v) if v else None
+
+    return {
+        "distance_km": num("Distance"),
+        "avg_hr": num("Average Heart Rate", int),
+        "avg_cadence": num("Average Cadence", int),
+        "avg_stride_m": num("Average Stride Length"),
+        "calories": num("Calories", int),
+        "training_load": num("Training Load", int),
+        "aerobic_te": num("Aerobic TE"),
+        "anaerobic_te": num("Anaerobic TE"),
+        "training_focus": _match(body, r"Training Focus:\s*(\D+?)\s*\n")
+        or _match(body, r"Training Focus:\s*(\S+)"),
+        "perceived_effort": _match(body, r"Perceived Effort:\s*(.+)"),
+        "avg_pace_sec": pace("Average Pace"),
+        "best_km_sec": pace("Best Kilometer"),
+    }
