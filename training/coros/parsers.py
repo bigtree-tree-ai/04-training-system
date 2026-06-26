@@ -381,3 +381,35 @@ def parse_activity_detail(text: str) -> dict:
         "avg_pace_sec": pace("Average Pace"),
         "best_km_sec": pace("Best Kilometer"),
     }
+
+
+_LAP_KEY = {
+    "lapIndex": "lap_index",
+    "distance": "distance_m",
+    "avgPace": "avg_pace_sec",
+    "avgHr": "avg_hr",
+    "maxHr": "max_hr",
+    "avgPower": "avg_power",
+    "avgCadence": "avg_cadence",
+    "groundTime": "ground_time",
+    "groundBalance": "ground_balance",
+    "strideHeight": "stride_height",
+    "avgStrideLength": "avg_stride_m",
+}
+
+
+def parse_activity_laps(text: str) -> list[dict]:
+    """Parse queryActivityLapData JSON ({columns:[{name}], data:[[...]]}) into lap dicts."""
+    body = clean_text(text)
+    if not body.startswith("{"):
+        body = extract_tool_text(text)
+    obj = json.loads(body)
+    cols = [c.get("name") for c in obj.get("columns", [])]
+    rows = []
+    for raw in obj.get("data", []):
+        rec = {}
+        for name, val in zip(cols, raw):
+            if name in _LAP_KEY:
+                rec[_LAP_KEY[name]] = val
+        rows.append(rec)
+    return rows

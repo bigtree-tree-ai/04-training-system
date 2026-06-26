@@ -1,5 +1,11 @@
 """Tests for COROS Activity (session-level) sync: parsers, storage, service, FIT."""
-from training.coros.parsers import parse_activity_detail, parse_sport_records
+import json
+
+from training.coros.parsers import (
+    parse_activity_detail,
+    parse_activity_laps,
+    parse_sport_records,
+)
 
 SAMPLE = """Sport Records — 2026-06-18 to 2026-06-24 (4 records)
 
@@ -60,3 +66,35 @@ def test_parse_activity_detail():
     assert d["perceived_effort"] == "Somewhat Tired"
     assert d["best_km_sec"] == 3 * 60 + 50  # 3:50
     assert d["avg_pace_sec"] == 4 * 60 + 34
+
+
+LAPS_JSON = json.dumps(
+    {
+        "source": "activityDetail",
+        "labelId": "478426540852413118",
+        "sportType": 101,
+        "columns": [
+            {"name": "lapIndex", "label": "圈数"},
+            {"name": "distance", "label": "距离"},
+            {"name": "avgPace", "label": "平均配速"},
+            {"name": "avgHr", "label": "平均心率"},
+            {"name": "maxHr", "label": "最大心率"},
+            {"name": "avgPower", "label": "平均功率"},
+            {"name": "avgCadence", "label": "平均步频"},
+        ],
+        "data": [
+            [1, 1000, 240, 148, 162, 250, 190],
+            [2, 1000, 235, 152, 164, 255, 192],
+        ],
+    },
+    ensure_ascii=False,
+)
+
+
+def test_parse_activity_laps():
+    laps = parse_activity_laps(LAPS_JSON)
+    assert len(laps) == 2
+    assert laps[0]["lap_index"] == 1
+    assert laps[0]["distance_m"] == 1000
+    assert laps[0]["avg_hr"] == 148
+    assert laps[1]["avg_cadence"] == 192
