@@ -123,7 +123,7 @@ def get_session_count():
 def get_running_sessions(from_date=None, to_date=None):
     conn = get_conn()
     try:
-        sql = "SELECT * FROM sessions WHERE sport='running'"
+        sql = "SELECT * FROM sessions WHERE (sport='running' OR sport LIKE '%Run%')"
         params = []
         if from_date:
             sql += " AND start_time >= ?"

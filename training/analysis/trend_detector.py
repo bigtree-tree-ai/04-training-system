@@ -1,5 +1,5 @@
 """趋势检测与预警"""
-from training.storage.db import init_db, get_conn
+from training.storage.db import init_db, get_conn, RUN_SPORT_PREDICATE
 
 
 def detect_warnings() -> list[dict]:
@@ -67,10 +67,10 @@ def detect_warnings() -> list[dict]:
             })
 
     # 4. 心率漂移过大（最近3次长跑）
-    drift_rows = conn.execute("""
+    drift_rows = conn.execute(f"""
         SELECT filename, start_time, distance_km, hr_drift_pct
         FROM sessions
-        WHERE sport='running' AND distance_km >= 8 AND hr_drift_pct IS NOT NULL
+        WHERE {RUN_SPORT_PREDICATE} AND distance_km >= 8 AND hr_drift_pct IS NOT NULL
         ORDER BY start_time DESC LIMIT 3
     """).fetchall()
     high_drift = [r for r in drift_rows if r['hr_drift_pct'] > 5]
@@ -91,7 +91,7 @@ def detect_warnings() -> list[dict]:
             ROUND(AVG(h.zone4_pct + h.zone5_pct), 1) as hard_pct
         FROM sessions s
         JOIN hr_zone_splits h ON s.id = h.session_id
-        WHERE s.sport='running'
+        WHERE (s.sport='running' OR s.sport LIKE '%Run%')
           AND s.start_time >= DATE('now', '-14 days')
           AND h.zone1_pct IS NOT NULL
     """).fetchone()

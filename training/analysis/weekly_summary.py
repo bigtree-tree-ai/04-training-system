@@ -1,7 +1,7 @@
 """周汇总统计"""
 from datetime import datetime
 
-from training.storage.db import init_db, get_conn
+from training.storage.db import init_db, get_conn, RUN_SPORT_PREDICATE
 from training.storage.writers import upsert_weekly_summary
 
 
@@ -10,25 +10,25 @@ def compute_weekly_summaries():
     init_db()
     conn = get_conn()
 
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT
             strftime('%Y', start_time) as year,
             strftime('%W', start_time) as week_number,
             MIN(DATE(start_time)) as week_start,
             MAX(DATE(start_time)) as week_end,
             COUNT(*) as total_sessions,
-            SUM(CASE WHEN sport='running' THEN 1 ELSE 0 END) as run_sessions,
-            SUM(CASE WHEN sport!='running' THEN 1 ELSE 0 END) as cross_sessions,
+            SUM(CASE WHEN {RUN_SPORT_PREDICATE} THEN 1 ELSE 0 END) as run_sessions,
+            SUM(CASE WHEN NOT {RUN_SPORT_PREDICATE} THEN 1 ELSE 0 END) as cross_sessions,
             ROUND(SUM(COALESCE(distance_km, 0)), 2) as total_distance_km,
-            ROUND(SUM(CASE WHEN sport='running' THEN COALESCE(distance_km, 0) ELSE 0 END), 2) as run_distance_km,
+            ROUND(SUM(CASE WHEN {RUN_SPORT_PREDICATE} THEN COALESCE(distance_km, 0) ELSE 0 END), 2) as run_distance_km,
             ROUND(SUM(COALESCE(duration_sec, 0)), 1) as total_duration_sec,
             SUM(COALESCE(total_calories, 0)) as total_calories,
             ROUND(SUM(COALESCE(hr_tss, 0)), 1) as total_hr_tss,
-            ROUND(AVG(CASE WHEN sport='running' AND avg_hr IS NOT NULL THEN avg_hr END), 0) as avg_hr,
-            MAX(CASE WHEN sport='running' THEN max_hr END) as max_hr_of_week,
-            ROUND(AVG(CASE WHEN sport='running' AND avg_pace_sec IS NOT NULL
+            ROUND(AVG(CASE WHEN {RUN_SPORT_PREDICATE} AND avg_hr IS NOT NULL THEN avg_hr END), 0) as avg_hr,
+            MAX(CASE WHEN {RUN_SPORT_PREDICATE} THEN max_hr END) as max_hr_of_week,
+            ROUND(AVG(CASE WHEN {RUN_SPORT_PREDICATE} AND avg_pace_sec IS NOT NULL
                        AND avg_pace_sec > 330 THEN avg_pace_sec END), 1) as avg_easy_pace_sec,
-            ROUND(MAX(CASE WHEN sport='running' THEN distance_km END), 2) as longest_run_km
+            ROUND(MAX(CASE WHEN {RUN_SPORT_PREDICATE} THEN distance_km END), 2) as longest_run_km
         FROM sessions
         GROUP BY year, week_number
         ORDER BY year, week_number

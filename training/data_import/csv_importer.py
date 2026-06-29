@@ -77,7 +77,7 @@ def import_csv(csv_path: str = None):
 
     # 验证
     total = conn.execute("SELECT COUNT(*) as cnt FROM sessions").fetchone()['cnt']
-    running = conn.execute("SELECT COUNT(*) as cnt FROM sessions WHERE sport='running'").fetchone()['cnt']
+    running = conn.execute("SELECT COUNT(*) as cnt FROM sessions WHERE (sport='running' OR sport LIKE '%Run%')").fetchone()['cnt']
     conn.close()
 
     print(f"CSV导入完成: {count}条记录已导入")

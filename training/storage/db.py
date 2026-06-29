@@ -5,6 +5,14 @@ from pathlib import Path
 from training.config import DB_PATH
 
 
+# SQL predicate matching running sessions: legacy 'running' + COROS 'Outdoor/Indoor Run'.
+# Excludes Hiking/Walking/Cycling/Strength Training (no 'Run' in name). SQLite LIKE is
+# case-insensitive for ASCII, but 'running' has no capital 'Run', so it needs the OR.
+# Use inside WHERE / CASE WHEN via f-string:   WHERE {RUN_SPORT_PREDICATE}
+# For table-aliased queries use the inlined  (s.sport='running' OR s.sport LIKE '%Run%').
+RUN_SPORT_PREDICATE = "(sport='running' OR sport LIKE '%Run%')"
+
+
 def get_conn(db_path: str = None) -> sqlite3.Connection:
     path = db_path or str(DB_PATH)
     conn = sqlite3.connect(path)

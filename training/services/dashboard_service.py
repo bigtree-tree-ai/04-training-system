@@ -79,14 +79,14 @@ def _get_pro_status(conn) -> dict:
     # 最近一次跑步的VO2max
     vo2 = conn.execute("""
         SELECT vo2max FROM sessions
-        WHERE sport='running' AND vo2max IS NOT NULL
+        WHERE (sport='running' OR sport LIKE '%Run%') AND vo2max IS NOT NULL
         ORDER BY start_time DESC LIMIT 1
     """).fetchone()
 
     # 近12周跑步(marathon shape)
     shape_sessions = conn.execute("""
         SELECT distance_km FROM sessions
-        WHERE sport='running' AND start_time >= DATE('now', '-84 days')
+        WHERE (sport='running' OR sport LIKE '%Run%') AND start_time >= DATE('now', '-84 days')
     """).fetchall()
 
     from training.analysis.pro_metrics import compute_marathon_shape
@@ -120,8 +120,8 @@ def get_summary_data() -> dict:
     conn = get_conn()
     try:
         total = conn.execute("SELECT COUNT(*) as cnt FROM sessions").fetchone()['cnt']
-        running = conn.execute("SELECT COUNT(*) as cnt FROM sessions WHERE sport='running'").fetchone()['cnt']
-        total_km = conn.execute("SELECT ROUND(SUM(distance_km), 1) as km FROM sessions WHERE sport='running'").fetchone()['km']
+        running = conn.execute("SELECT COUNT(*) as cnt FROM sessions WHERE (sport='running' OR sport LIKE '%Run%')").fetchone()['cnt']
+        total_km = conn.execute("SELECT ROUND(SUM(distance_km), 1) as km FROM sessions WHERE (sport='running' OR sport LIKE '%Run%')").fetchone()['km']
         total_hrs = conn.execute("SELECT ROUND(SUM(duration_sec)/3600, 1) as hrs FROM sessions").fetchone()['hrs']
         return {
             'total_sessions': total,

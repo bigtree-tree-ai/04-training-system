@@ -46,7 +46,7 @@ def match_plan_to_actual():
             # 查找当天的实际训练
             session = conn.execute("""
                 SELECT id, distance_km FROM sessions
-                WHERE sport='running' AND DATE(start_time) = ?
+                WHERE (sport='running' OR sport LIKE '%Run%') AND DATE(start_time) = ?
                 ORDER BY start_time LIMIT 1
             """, (plan['planned_date'],)).fetchone()
 

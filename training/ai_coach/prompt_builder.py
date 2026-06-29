@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from training.storage.db import get_conn
+from training.storage.db import get_conn, RUN_SPORT_PREDICATE
 from training import config
 
 
@@ -54,14 +54,14 @@ def build_macro_context(days: int = 30) -> str:
             return "暂无训练负荷数据，请先运行 python3 -m training.cli analyze 计算训练指标"
 
         days_param = f'-{days} days'
-        stats = conn.execute("""
+        stats = conn.execute(f"""
             SELECT COUNT(*) as cnt,
-                   SUM(CASE WHEN sport='running' THEN 1 ELSE 0 END) as runs,
-                   ROUND(SUM(CASE WHEN sport='running' THEN distance_km ELSE 0 END), 1) as run_km,
+                   SUM(CASE WHEN {RUN_SPORT_PREDICATE} THEN 1 ELSE 0 END) as runs,
+                   ROUND(SUM(CASE WHEN {RUN_SPORT_PREDICATE} THEN distance_km ELSE 0 END), 1) as run_km,
                    ROUND(SUM(duration_sec)/3600, 1) as hours,
-                   ROUND(AVG(CASE WHEN sport='running' THEN avg_hr END), 0) as avg_hr,
-                   ROUND(AVG(CASE WHEN sport='running' THEN hr_tss END), 0) as avg_tss,
-                   ROUND(SUM(CASE WHEN sport='running' THEN hr_tss END), 0) as total_tss
+                   ROUND(AVG(CASE WHEN {RUN_SPORT_PREDICATE} THEN avg_hr END), 0) as avg_hr,
+                   ROUND(AVG(CASE WHEN {RUN_SPORT_PREDICATE} THEN hr_tss END), 0) as avg_tss,
+                   ROUND(SUM(CASE WHEN {RUN_SPORT_PREDICATE} THEN hr_tss END), 0) as total_tss
             FROM sessions
             WHERE start_time >= DATE('now', ?)
         """, (days_param,)).fetchone()
@@ -72,7 +72,7 @@ def build_macro_context(days: int = 30) -> str:
                 ROUND(AVG(h.zone3_pct), 1) as z3, ROUND(AVG(h.zone4_pct), 1) as z4,
                 ROUND(AVG(h.zone5_pct), 1) as z5
             FROM sessions s JOIN hr_zone_splits h ON s.id=h.session_id
-            WHERE s.sport='running' AND s.start_time >= DATE('now', ?) AND h.zone1_pct IS NOT NULL
+            WHERE (s.sport='running' OR s.sport LIKE '%Run%') AND s.start_time >= DATE('now', ?) AND h.zone1_pct IS NOT NULL
         """, (days_param,)).fetchone()
 
         weeks = conn.execute("""

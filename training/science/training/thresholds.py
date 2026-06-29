@@ -34,7 +34,7 @@ def estimate_lt_hr_from_recent(weeks: int = 8) -> Optional[int]:
     取符合条件的 session：
       - duration_sec >= 1200（≥ 20 分钟持续努力）
       - avg_hr 在 0.85 × maxHR 附近（典型阈值区）
-      - sport='running'
+      - (sport='running' OR sport LIKE '%Run%')
     返回这些 session avg_hr 的中位数。
     """
     cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
@@ -42,7 +42,7 @@ def estimate_lt_hr_from_recent(weeks: int = 8) -> Optional[int]:
     try:
         rows = conn.execute(
             """SELECT avg_hr FROM sessions
-               WHERE sport='running'
+               WHERE (sport='running' OR sport LIKE '%Run%')
                  AND duration_sec >= 1200
                  AND avg_hr IS NOT NULL
                  AND start_time >= ?
@@ -66,7 +66,7 @@ def estimate_critical_speed(weeks: int = 8) -> Optional[float]:
     try:
         rows = conn.execute(
             """SELECT avg_pace_sec FROM sessions
-               WHERE sport='running'
+               WHERE (sport='running' OR sport LIKE '%Run%')
                  AND distance_km BETWEEN 5 AND 15
                  AND avg_pace_sec IS NOT NULL
                  AND start_time >= ?

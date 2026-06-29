@@ -3,7 +3,7 @@ import math
 from datetime import datetime, timedelta
 
 from training import config
-from training.storage.db import get_conn, init_db
+from training.storage.db import get_conn, init_db, RUN_SPORT_PREDICATE
 
 
 def estimate_vo2max(avg_pace_sec: float, avg_hr: float, duration_sec: float,
@@ -275,10 +275,10 @@ def compute_all_pro_metrics():
     init_db()
     conn = get_conn()
 
-    sessions = conn.execute("""
+    sessions = conn.execute(f"""
         SELECT id, avg_hr, duration_sec, avg_speed_mps, avg_pace_sec,
                distance_km, sport, hr_tss
-        FROM sessions WHERE sport='running' AND avg_hr IS NOT NULL
+        FROM sessions WHERE {RUN_SPORT_PREDICATE} AND avg_hr IS NOT NULL
     """).fetchall()
 
     # 获取最新TSB

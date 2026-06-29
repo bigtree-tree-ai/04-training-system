@@ -52,14 +52,14 @@ def _get_period_stats(conn, start: str, end: str) -> dict:
     row = conn.execute("""
         SELECT
             COUNT(*) as session_count,
-            SUM(CASE WHEN sport='running' THEN 1 ELSE 0 END) as run_count,
-            ROUND(COALESCE(SUM(CASE WHEN sport='running' THEN distance_km END), 0), 1) as run_km,
-            ROUND(COALESCE(SUM(CASE WHEN sport='running' THEN hr_tss END), 0), 1) as total_tss,
-            ROUND(COALESCE(AVG(CASE WHEN sport='running' AND hr_tss > 0 THEN hr_tss END), 0), 1) as avg_tss,
+            SUM(CASE WHEN (sport='running' OR sport LIKE '%Run%') THEN 1 ELSE 0 END) as run_count,
+            ROUND(COALESCE(SUM(CASE WHEN (sport='running' OR sport LIKE '%Run%') THEN distance_km END), 0), 1) as run_km,
+            ROUND(COALESCE(SUM(CASE WHEN (sport='running' OR sport LIKE '%Run%') THEN hr_tss END), 0), 1) as total_tss,
+            ROUND(COALESCE(AVG(CASE WHEN (sport='running' OR sport LIKE '%Run%') AND hr_tss > 0 THEN hr_tss END), 0), 1) as avg_tss,
             ROUND(COALESCE(SUM(duration_sec), 0) / 3600, 1) as total_hours,
-            ROUND(COALESCE(AVG(CASE WHEN sport='running' AND avg_pace_sec > 330 THEN avg_pace_sec END), 0), 1) as avg_easy_pace,
-            ROUND(COALESCE(AVG(CASE WHEN sport='running' AND avg_pace_sec > 330 THEN avg_hr END), 0), 1) as avg_easy_hr,
-            ROUND(COALESCE(MAX(CASE WHEN sport='running' THEN distance_km END), 0), 1) as longest_run
+            ROUND(COALESCE(AVG(CASE WHEN (sport='running' OR sport LIKE '%Run%') AND avg_pace_sec > 330 THEN avg_pace_sec END), 0), 1) as avg_easy_pace,
+            ROUND(COALESCE(AVG(CASE WHEN (sport='running' OR sport LIKE '%Run%') AND avg_pace_sec > 330 THEN avg_hr END), 0), 1) as avg_easy_hr,
+            ROUND(COALESCE(MAX(CASE WHEN (sport='running' OR sport LIKE '%Run%') THEN distance_km END), 0), 1) as longest_run
         FROM sessions
         WHERE start_time >= ? AND start_time < ?
     """, (start, end)).fetchone()
@@ -78,7 +78,7 @@ def _get_avg_vo2max(conn, start: str, end: str) -> float | None:
     row = conn.execute("""
         SELECT ROUND(AVG(vo2max), 1) as avg_vo2
         FROM sessions
-        WHERE sport='running' AND vo2max IS NOT NULL
+        WHERE (sport='running' OR sport LIKE '%Run%') AND vo2max IS NOT NULL
           AND start_time >= ? AND start_time < ?
     """, (start, end)).fetchone()
     return row['avg_vo2'] if row else None
@@ -94,7 +94,7 @@ def _get_zone_distribution(conn, start: str, end: str) -> dict:
             COALESCE(SUM(h.zone5_sec), 0) as z5
         FROM sessions s
         JOIN hr_zone_splits h ON s.id = h.session_id
-        WHERE s.sport='running' AND s.start_time >= ? AND s.start_time < ?
+        WHERE (s.sport='running' OR s.sport LIKE '%Run%') AND s.start_time >= ? AND s.start_time < ?
     """, (start, end)).fetchone()
     if not row:
         return {}

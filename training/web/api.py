@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Body, HTTPException
 from training.storage.queries import get_daily_load, get_weekly_summaries
-from training.storage.db import get_conn
+from training.storage.db import get_conn, RUN_SPORT_PREDICATE
 from training.adapters.sqlite_repositories import SQLiteTrainingRepository
 from training.application.heartbeat import AgenticHeartbeatScheduler
 from training.application.professional import ProfessionalDashboardService
@@ -61,7 +61,7 @@ async def zone_distribution(days: int = 14):
                 ROUND(SUM(h.zone5_sec), 0) as z5
             FROM sessions s
             JOIN hr_zone_splits h ON s.id = h.session_id
-            WHERE s.sport='running' AND s.start_time >= ? AND h.zone1_pct IS NOT NULL
+            WHERE (s.sport='running' OR s.sport LIKE '%Run%') AND s.start_time >= ? AND h.zone1_pct IS NOT NULL
         """, (from_date,)).fetchone()
     finally:
         conn.close()
@@ -90,10 +90,10 @@ async def zone_distribution(days: int = 14):
 async def pace_trend(limit: int = 20):
     conn = get_conn()
     try:
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT DATE(start_time) as date, avg_pace_sec, distance_km, avg_hr
             FROM sessions
-            WHERE sport='running' AND avg_pace_sec IS NOT NULL AND avg_pace_sec > 330
+            WHERE {RUN_SPORT_PREDICATE} AND avg_pace_sec IS NOT NULL AND avg_pace_sec > 330
             ORDER BY start_time DESC LIMIT ?
         """, (limit,)).fetchall()
     finally:
@@ -113,10 +113,10 @@ async def vo2max_trend(limit: int = 30):
     """VO2max趋势数据"""
     conn = get_conn()
     try:
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT DATE(start_time) as date, vo2max
             FROM sessions
-            WHERE sport='running' AND vo2max IS NOT NULL
+            WHERE {RUN_SPORT_PREDICATE} AND vo2max IS NOT NULL
             ORDER BY start_time DESC LIMIT ?
         """, (limit,)).fetchall()
     finally:

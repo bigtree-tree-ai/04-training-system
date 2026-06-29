@@ -11,7 +11,7 @@ def get_recovery_report() -> str:
     conn = get_conn()
     try:
         latest = conn.execute("""
-            SELECT * FROM sessions WHERE sport='running' ORDER BY start_time DESC LIMIT 1
+            SELECT * FROM sessions WHERE (sport='running' OR sport LIKE '%Run%') ORDER BY start_time DESC LIMIT 1
         """).fetchone()
 
         pmc = conn.execute("""
@@ -24,7 +24,7 @@ def get_recovery_report() -> str:
                    SUM(COALESCE(hr_tss, 0)) as total_tss,
                    SUM(COALESCE(distance_km, 0)) as total_km
             FROM sessions
-            WHERE sport='running' AND start_time >= DATE('now', '-7 days')
+            WHERE (sport='running' OR sport LIKE '%Run%') AND start_time >= DATE('now', '-7 days')
         """).fetchone()
 
         consecutive = count_consecutive_days(conn)
@@ -38,7 +38,7 @@ def count_consecutive_days(conn) -> int:
     """计算连续训练天数"""
     rows = conn.execute("""
         SELECT DISTINCT DATE(start_time) as d FROM sessions
-        WHERE sport='running' ORDER BY d DESC LIMIT 14
+        WHERE (sport='running' OR sport LIKE '%Run%') ORDER BY d DESC LIMIT 14
     """).fetchall()
 
     if not rows:
@@ -161,7 +161,7 @@ def generate_weekly_recovery_strategy(conn=None) -> dict:
                    SUM(COALESCE(distance_km, 0)) as total_km,
                    AVG(CASE WHEN hr_tss > 0 THEN hr_tss END) as avg_tss
             FROM sessions
-            WHERE sport='running' AND start_time >= DATE('now', '-7 days')
+            WHERE (sport='running' OR sport LIKE '%Run%') AND start_time >= DATE('now', '-7 days')
         """).fetchone()
 
         # 上周数据
@@ -169,7 +169,7 @@ def generate_weekly_recovery_strategy(conn=None) -> dict:
             SELECT SUM(COALESCE(hr_tss, 0)) as total_tss,
                    SUM(COALESCE(distance_km, 0)) as total_km
             FROM sessions
-            WHERE sport='running'
+            WHERE (sport='running' OR sport LIKE '%Run%')
               AND start_time >= DATE('now', '-14 days')
               AND start_time < DATE('now', '-7 days')
         """).fetchone()

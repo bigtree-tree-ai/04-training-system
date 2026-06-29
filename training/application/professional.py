@@ -240,7 +240,7 @@ def _data_quality(day: date, checkin: dict, plan: dict | None, load_rows: list[d
     conn = get_conn()
     try:
         session_count = _count(conn, "SELECT COUNT(*) FROM sessions")
-        running_count = _count(conn, "SELECT COUNT(*) FROM sessions WHERE sport='running'")
+        running_count = _count(conn, "SELECT COUNT(*) FROM sessions WHERE (sport='running' OR sport LIKE '%Run%')")
         latest_session = _one(
             conn,
             """
@@ -373,7 +373,7 @@ def _zone_distribution(day: date, days: int) -> dict[str, Any]:
                 SUM(h.zone5_sec) as z5
             FROM sessions s
             JOIN hr_zone_splits h ON s.id = h.session_id
-            WHERE s.sport='running' AND DATE(s.start_time) >= ?
+            WHERE (s.sport='running' OR s.sport LIKE '%Run%') AND DATE(s.start_time) >= ?
             """,
             (from_date,),
         ).fetchone()
