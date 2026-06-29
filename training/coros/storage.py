@@ -395,6 +395,21 @@ def upsert_coros_sessions(rows: list[dict]) -> int:
     return n
 
 
+def mark_session_has_track_points(session_id: int) -> None:
+    """Flag that a session now has track_points.
+
+    upsert_coros_sessions does not touch has_track_points (schema default 0);
+    bridges that write session_track_points must set this so the session page
+    renders the HR/GPS track.
+    """
+    conn = get_conn()
+    try:
+        conn.execute("UPDATE sessions SET has_track_points=1 WHERE id=?", (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def upsert_laps(session_id: int, laps: list[dict]) -> int:
     """Insert laps for a session. lap distance_m -> distance_km. UNIQUE(session_id, lap_index)."""
     if not laps:

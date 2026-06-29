@@ -126,9 +126,12 @@ def compute_all_session_metrics():
     init_db()
     conn = get_conn()
 
+    # Include both legacy 'running' and COROS 'Outdoor Run'/'Indoor Run'. Exclude
+    # Hiking/Walking/Cycling (no 'Run' in name). SQLite LIKE is case-insensitive
+    # for ASCII but 'running' has no capital 'Run', so it needs the explicit OR.
     sessions = conn.execute("""
         SELECT id, avg_hr, duration_sec, avg_speed_mps, sport
-        FROM sessions WHERE sport='running'
+        FROM sessions WHERE sport='running' OR sport LIKE '%Run%'
     """).fetchall()
 
     updated = 0

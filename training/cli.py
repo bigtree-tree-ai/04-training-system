@@ -24,6 +24,7 @@ def main():
         print("  activity-sync [days] [--full]  从COROS采集训练session明细(含FIT/GPS/步态)")
         print("  coros-overview         查看COROS结构化数据概览")
         print("  coros-bridge [db]      从coros-collect采集库桥接数据进AI教练数据源")
+        print("  activity-sync-collect [days] [db]  从coros-collect采集库补齐训练session(GPS/心率轨迹)")
         print("  serve                  启动Web服务")
         return
 
@@ -147,6 +148,23 @@ def main():
         print("COROS采集数据桥接完成(从coros-collect)")
         for name, count in result.items():
             print(f"  {name}: {count}")
+
+    elif cmd == 'activity-sync-collect':
+        from training.coros.activity_collect_bridge import sync_activities_from_collect
+        collect_db = '/opt/coros-collect/data/coros.sqlite'
+        days = 7
+        for a in sys.argv[2:]:
+            if a.isdigit():
+                days = int(a)
+            elif not a.startswith('--'):
+                collect_db = a
+        result = sync_activities_from_collect(collect_db, days=days)
+        print("COROS Activity 采集库补齐完成(从coros-collect)")
+        for name, value in result.items():
+            if name == "skipped":
+                print(f"  skipped: {len(value)} 条")
+            else:
+                print(f"  {name}: {value}")
 
     elif cmd == 'coros-login':
         from training.coros.oauth import login_with_browser
