@@ -55,3 +55,15 @@
 ## 协作纪律
 
 仅改 `training/coros/`、`training/analysis/session_metrics.py`、`training/cli.py`、`tests/`(我方独占区);`deploy_aliyun.sh` 未动;push 前 `git pull --rebase`(无冲突)。
+
+---
+
+## 后续(2026-06-29 #2):系统性 sport 过滤 bug 已全量修复(commit dc6e717)
+
+上节"遗留"提到的系统性 `sport='running'` bug,全仓 grep 后发现实际遍布 **~28 处 / 14 文件**(远不止最初估计的 6),已全部修复:
+
+- 共享 `RUN_SPORT_PREDICATE` 常量(`storage/db.py`):weekly_summary / pro_metrics / trend_detector / ai_coach prompt / web api 用 f-string 引用
+- 内联 `(sport='running' OR sport LIKE '%Run%')`:thresholds / recovery / queries / csv_importer / professional / dashboard_service / plan_service / comparison_service
+- 全套件 211 passed(新增 test_run_sport_filter 5 个);服务器部署 + analyze 重算后**周报跑量恢复**(W22 5次99.6km / W25 6次70.5km,之前全 0;coros 不再被误算交叉训练)
+- **修复后浮现真实信号**:W25 跑量 **+218%**(6次70km,超 10% 递增法则),trend_detector 现在会预警(之前漏 coros 看不到)
+- 遗留:session_service:39 `get_similar_sessions(sport='running')` 是 Python 参数(非 SQL),牵连函数签名,记后续
